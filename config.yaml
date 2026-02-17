@@ -1,0 +1,10 @@
+proxy: # http proxy settings
+  enabled: true
+  url: "socks5://127.0.0.1:7890" 
+bot:
+  - token: 8441906451:sddsds # lancewei_bot
+  - token: 7984808294:dsd # BearChatCustomerBot
+customer:
+  - chat_id: -5013962926
+  # - chat_id: -1001234567890
+  # - chat_id: -1009876543210
