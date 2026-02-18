@@ -4,15 +4,26 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"sync"
 
 	"gopkg.in/telebot.v4"
 )
+
+type UserTopicInfo struct {
+	UserID   int64
+	Username string
+	TopicID  int
+	GroupID  int64
+}
 
 type Bot struct {
 	tgBot *telebot.Bot
 
 	BotId    int64
 	Username string
+
+	// 用户ID -> topic映射
+	userTopics sync.Map // map[int64]*UserTopicInfo
 }
 
 func NewBot(token string) *Bot {

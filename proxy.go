@@ -15,7 +15,7 @@ func SetProxyConfig(cfg ProxyConfig) {
 
 func HttpClient() *http.Client {
 	clt := &http.Client{
-		Timeout: 3 * time.Second,
+		Timeout: 5 * time.Second,
 	}
 	if !proxyConfig.Enabled {
 		return clt
