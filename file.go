@@ -32,14 +32,17 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
+	"syscall"
 )
 
 type KVStore interface {
@@ -216,6 +219,9 @@ func (s *FileKVStore) Compact() error {
 	defer s.mu.Unlock()
 
 	tmpPath := s.path + ".compact"
+	cleanupTmp := func() {
+		_ = os.Remove(tmpPath)
+	}
 	tmpFile, err := os.OpenFile(tmpPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return fmt.Errorf("open compact file: %w", err)
@@ -226,25 +232,33 @@ func (s *FileKVStore) Compact() error {
 	for k, v := range s.data {
 		if err := writeRecord(tmpFile, recordOpPut, k, v); err != nil {
 			_ = tmpFile.Close()
+			cleanupTmp()
 			return err
 		}
 	}
 
 	if err := tmpFile.Sync(); err != nil {
 		_ = tmpFile.Close()
+		cleanupTmp()
 		return fmt.Errorf("sync compact file: %w", err)
 	}
 	if err := tmpFile.Close(); err != nil {
+		cleanupTmp()
 		return fmt.Errorf("close compact file: %w", err)
 	}
 
 	if err := s.file.Close(); err != nil {
+		cleanupTmp()
 		return fmt.Errorf("close old store file: %w", err)
 	}
 
 	// 用临时文件替换旧的存储文件
 	if err := os.Rename(tmpPath, s.path); err != nil {
+		cleanupTmp()
 		return fmt.Errorf("replace compact file: %w", err)
+	}
+	if err := syncDir(filepath.Dir(s.path)); err != nil {
+		return fmt.Errorf("sync store dir: %w", err)
 	}
 
 	newFile, err := os.OpenFile(s.path, os.O_CREATE|os.O_RDWR, 0o644)
@@ -277,40 +291,93 @@ func (s *FileKVStore) Close() error {
 func replayLog(path string) (map[string][]byte, int64, error) {
 	data := make(map[string][]byte)
 
-	raw, err := os.ReadFile(path)
+	f, err := os.Open(path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return data, 0, nil
 		}
-		return nil, 0, fmt.Errorf("read store file: %w", err)
+		return nil, 0, fmt.Errorf("open store file: %w", err)
 	}
+	defer f.Close()
 
-	var (
-		pos      int // Current position in the log
-		lastGood int // 可恢复提交点
-	)
+	r := bufio.NewReader(f)
+	const headerSize = 4 + 1 + 4 + 4
+
+	var lastGood int64
 	for {
-		record, nextPos, ok := parseRecord(raw, pos)
-		if !ok {
+		header := make([]byte, headerSize)
+		if _, err := io.ReadFull(r, header); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
+			return nil, 0, fmt.Errorf("read record header: %w", err)
+		}
+
+		expectedCRC := binary.BigEndian.Uint32(header[:4])
+		op := header[4]
+		keyLen := int(binary.BigEndian.Uint32(header[5:9]))
+		valueLen := int(binary.BigEndian.Uint32(header[9:13]))
+		if keyLen < 0 || valueLen < 0 {
 			break
 		}
 
-		// 如果: 坏记录后继续扫描/跳过未知 op, pos 和 lastGood 可能不同
-
-		switch record.op {
-		case recordOpPut:
-			val := make([]byte, len(record.value))
-			copy(val, record.value)
-			data[record.key] = val
-		case recordOpDelete:
-			delete(data, record.key)
+		body := make([]byte, keyLen+valueLen)
+		if _, err := io.ReadFull(r, body); err != nil {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				break
+			}
+			return nil, 0, fmt.Errorf("read record body: %w", err)
 		}
 
-		pos = nextPos
-		lastGood = nextPos
+		checksumData := make([]byte, 1+4+4+len(body))
+		copy(checksumData[:headerSize-4], header[4:])
+		copy(checksumData[headerSize-4:], body)
+		actualCRC := crc32.ChecksumIEEE(checksumData)
+		if actualCRC != expectedCRC {
+			break
+		}
+
+		key := string(body[:keyLen])
+		value := body[keyLen:]
+
+		validOp := true
+		switch op {
+		case recordOpPut:
+			val := make([]byte, len(value))
+			copy(val, value)
+			data[key] = val
+		case recordOpDelete:
+			delete(data, key)
+		default:
+			validOp = false
+		}
+		if !validOp {
+			break
+		}
+
+		lastGood += int64(headerSize + len(body))
 	}
 
-	return data, int64(lastGood), nil
+	return data, lastGood, nil
+}
+
+func syncDir(dir string) error {
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+
+	if err := d.Sync(); err != nil {
+		if errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.ENOTSUP) {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 type logRecord struct {
