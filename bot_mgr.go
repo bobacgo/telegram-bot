@@ -11,10 +11,10 @@ type BotManager struct {
 	bots sync.Map // map[botid]*Bot
 }
 
-func NewBotManager(bot []string) *BotManager {
+func NewBotManager(bot []string, store KVStore) *BotManager {
 	mgr := &BotManager{}
 	for _, token := range bot {
-		b := NewBot(token)
+		b := NewBot(token, store)
 		mgr.bots.Store(b.BotId, b)
 	}
 	return mgr

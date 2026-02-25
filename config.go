@@ -9,9 +9,9 @@ import (
 )
 
 type Config struct {
-	Proxy     ProxyConfig      `yaml:"proxy"`
-	Bots      []BotConfig      `yaml:"bot"`
-	Customers []CustomerConfig `yaml:"customer"`
+	Proxy    ProxyConfig    `yaml:"proxy"`
+	Bots     []BotConfig    `yaml:"bot"`
+	Customer CustomerConfig `yaml:"customer"`
 }
 
 type ProxyConfig struct {
@@ -24,7 +24,23 @@ type BotConfig struct {
 }
 
 type CustomerConfig struct {
+	SessionLimit int             `yaml:"session_limit"`
+	Groups       []CustomerGroup `yaml:"groups"`
+}
+
+type CustomerGroup struct {
 	ChatID int64 `yaml:"chat_id"`
+}
+
+func (c *CustomerConfig) GroupChatIDs() []int64 {
+	res := make([]int64, 0, len(c.Groups))
+	for _, g := range c.Groups {
+		if g.ChatID != 0 && !slices.Contains(res, g.ChatID) {
+			res = append(res, g.ChatID)
+		}
+	}
+	slices.Sort(res)
+	return res
 }
 
 func LoadConfig(path string) (*Config, error) {
@@ -50,19 +66,5 @@ func (c *Config) BotTokens() []string {
 			res = append(res, b.Token)
 		}
 	}
-	return res
-}
-
-func (c *Config) CustomerChatIDs() []int64 {
-	if c == nil {
-		return nil
-	}
-	res := make([]int64, 0, len(c.Customers))
-	for _, v := range c.Customers {
-		if v.ChatID != 0 && !slices.Contains(res, v.ChatID) {
-			res = append(res, v.ChatID)
-		}
-	}
-	slices.Sort(res)
 	return res
 }
