@@ -8,7 +8,12 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	store, err := NewFileKVStore("data/kv.log", FileKVStoreOptions{SyncOnWrite: true})
+	store, err := NewFileKVStore("data/kv.log", FileKVStoreOptions{
+		SyncOnWrite:        false, // Use counter-based sync strategy
+		SyncThreshold:      100,   // Sync after every 100 ops
+		CompactDeleteCount: 1000,  // Compact after 1000 deletes
+		// CompactCooldown and SyncCooldown use defaults (10s, 1s)
+	})
 	if err != nil {
 		log.Fatalf("failed to init kv store: %v", err)
 	}

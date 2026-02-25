@@ -17,7 +17,7 @@
 //	更新内存索引
 //	根据策略 fsync：
 //		强一致：每次写后 fsync
-//		高性能：批量/定时 fsync
+//		高性能：批量/定时 fsync 写入和删除到达一定次数后执行, 冷却时间窗内不重复执行
 //
 // 3) 读取流程
 //
@@ -25,8 +25,9 @@
 //
 // 4) 压缩（Compaction）
 //
-//	定期扫描 data.log，丢弃已删除或过期的键，生成新的 compact 文件
-//	替换旧的 data.log，释放磁盘空间
+//		定期扫描 data.log，丢弃已删除或过期的键，生成新的 compact 文件
+//		替换旧的 data.log，释放磁盘空间
+//	 删除到达一次量后执行, 一定时间窗不重复执行
 //
 // 5) 最小可用版本（MVP）
 package main
@@ -42,7 +43,9 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 )
 
 type KVStore interface {
@@ -69,7 +72,11 @@ type KVStore interface {
 }
 
 type FileKVStoreOptions struct {
-	SyncOnWrite bool // Whether to sync to disk on every write.
+	SyncOnWrite        bool          // Whether to sync to disk on every write (overrides SyncThreshold if true).
+	SyncThreshold      int           // Trigger fsync after this many write/delete operations (0=disabled, default:100).
+	CompactDeleteCount int           // Trigger compact after this many delete operations (0=disabled, default:1000).
+	CompactCooldown    time.Duration // Minimum interval between compacts (default:10s).
+	SyncCooldown       time.Duration // Minimum interval between background syncs (default:1s).
 }
 
 type FileKVStore struct {
@@ -79,6 +86,17 @@ type FileKVStore struct {
 	// In-memory data store.
 	data        map[string][]byte
 	syncOnWrite bool
+
+	// Counters and thresholds
+	syncThreshold      int
+	compactDeleteCount int
+	compactCooldown    time.Duration
+	syncCooldown       time.Duration
+
+	opsSinceSync    atomic.Int64
+	deletesSinceGC  atomic.Int64
+	lastSyncTime    atomic.Int64 // Unix nano
+	lastCompactTime atomic.Int64 // Unix nano
 }
 
 const (
@@ -89,6 +107,20 @@ const (
 func NewFileKVStore(path string, options FileKVStoreOptions) (*FileKVStore, error) {
 	if path == "" {
 		return nil, errors.New("store path is empty")
+	}
+
+	// Default options
+	if options.SyncThreshold <= 0 {
+		options.SyncThreshold = 100
+	}
+	if options.CompactDeleteCount <= 0 {
+		options.CompactDeleteCount = 1000
+	}
+	if options.CompactCooldown <= 0 {
+		options.CompactCooldown = 10 * time.Second
+	}
+	if options.SyncCooldown <= 0 {
+		options.SyncCooldown = 1 * time.Second
 	}
 
 	// 创建存储目录，如果已存在就忽略
@@ -118,10 +150,14 @@ func NewFileKVStore(path string, options FileKVStoreOptions) (*FileKVStore, erro
 	}
 
 	return &FileKVStore{
-		path:        path,
-		file:        f,
-		data:        parsedData,
-		syncOnWrite: options.SyncOnWrite,
+		path:               path,
+		file:               f,
+		data:               parsedData,
+		syncOnWrite:        options.SyncOnWrite,
+		syncThreshold:      options.SyncThreshold,
+		compactDeleteCount: options.CompactDeleteCount,
+		compactCooldown:    options.CompactCooldown,
+		syncCooldown:       options.SyncCooldown,
 	}, nil
 }
 
@@ -160,6 +196,13 @@ func (s *FileKVStore) Set(key string, value []byte) error {
 		}
 	}
 	s.data[key] = data
+
+	// Increment operation counter and check threshold-based sync
+	s.opsSinceSync.Add(1)
+	if !s.syncOnWrite && s.opsSinceSync.Load() >= int64(s.syncThreshold) {
+		go s.maybeBackgroundSync()
+	}
+
 	return nil
 }
 
@@ -181,6 +224,18 @@ func (s *FileKVStore) Delete(key string) error {
 		}
 	}
 	delete(s.data, key)
+
+	// Increment counters and check thresholds
+	s.opsSinceSync.Add(1)
+	s.deletesSinceGC.Add(1)
+
+	if !s.syncOnWrite && s.opsSinceSync.Load() >= int64(s.syncThreshold) {
+		go s.maybeBackgroundSync()
+	}
+	if s.deletesSinceGC.Load() >= int64(s.compactDeleteCount) {
+		go s.maybeBackgroundCompact()
+	}
+
 	return nil
 }
 
@@ -451,4 +506,40 @@ func writeRecord(f *os.File, op byte, key string, value []byte) error {
 		return fmt.Errorf("write record: %w", err)
 	}
 	return nil
+}
+
+// maybeBackgroundSync triggers a background fsync if cooldown elapsed and resets counter.
+func (s *FileKVStore) maybeBackgroundSync() {
+	now := time.Now().UnixNano()
+	lastSync := s.lastSyncTime.Load()
+	if now-lastSync < s.syncCooldown.Nanoseconds() {
+		return
+	}
+	if !s.lastSyncTime.CompareAndSwap(lastSync, now) {
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.file == nil {
+		return
+	}
+	_ = s.file.Sync()
+	s.opsSinceSync.Store(0)
+}
+
+// maybeBackgroundCompact triggers background compaction if cooldown elapsed and resets delete counter.
+func (s *FileKVStore) maybeBackgroundCompact() {
+	now := time.Now().UnixNano()
+	lastCompact := s.lastCompactTime.Load()
+	if now-lastCompact < s.compactCooldown.Nanoseconds() {
+		return
+	}
+	if !s.lastCompactTime.CompareAndSwap(lastCompact, now) {
+		return
+	}
+
+	_ = s.Compact()
+	s.deletesSinceGC.Store(0)
 }
