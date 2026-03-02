@@ -10,3 +10,11 @@ customer: # 客服设置
     - chat_id: -1003563520720
     # - chat_id: -1001234567890
     # - chat_id: -1009876543210
+
+db: # KV存储配置
+    path: "./data/user_topic.db"
+    sync_on_write: false       # 不立即同步，提高性能
+    sync_threshold: 100        # 100次操作后同步
+    compact_delete_count: 1000 # 1000次删除后压缩
+    compact_cooldown: 10       # 压缩冷却10秒
+    sync_cooldown: 1           # 同步冷却1秒

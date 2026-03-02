@@ -21,13 +21,13 @@ type Bot struct {
 
 	BotId    int64
 	Username string
-	store    KVStore
+	DB       DB
 
 	// 用户ID -> topic映射
 	userTopics sync.Map // map[int64]*UserTopicInfo
 }
 
-func NewBot(token string, store KVStore) *Bot {
+func NewBot(token string, db DB) *Bot {
 	// TODO : webhook support
 
 	pref := telebot.Settings{
@@ -44,12 +44,14 @@ func NewBot(token string, store KVStore) *Bot {
 	if err != nil {
 		log.Fatalf("failed to create bot, bot_id:%s err: %v", token, err)
 	}
+
 	b := &Bot{
 		tgBot:    bot,
 		BotId:    bot.Me.ID,
 		Username: bot.Me.Username,
-		store:    store,
+		DB:       db,
 	}
+	// 恢复用户topic信息
 	b.restoreUserTopics()
 	return b
 }

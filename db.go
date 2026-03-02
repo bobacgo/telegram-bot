@@ -48,7 +48,34 @@ import (
 	"time"
 )
 
+// DB 管理多个 KVStore 实例，每个实例对应一个业务场景
+// 应用启动时统一加载，之后只读取，无并发写入场景，不需要锁
+type DB map[string]KVStore
+
+// NewDB 创建一个新的 DB 实例
+func NewDB(tables []KVStore) DB {
+	db := make(DB)
+	for _, t := range tables {
+		db[t.Name()] = t
+	}
+	return db
+}
+
+// Close 关闭所有 KVStore 实例
+func (m DB) Close() error {
+	var errs error
+	for name, store := range m {
+		if err := store.Close(); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("close store %q: %w", name, err))
+		}
+	}
+	return errs
+}
+
 type KVStore interface {
+	// Name returns the name of the store, used for identification.
+	Name() string
+
 	// Get retrieves the value for a given key.
 	// []byte：数据本身
 	// bool：是否命中（found / not found）
@@ -159,6 +186,10 @@ func NewFileKVStore(path string, options FileKVStoreOptions) (*FileKVStore, erro
 		compactCooldown:    options.CompactCooldown,
 		syncCooldown:       options.SyncCooldown,
 	}, nil
+}
+
+func (s *FileKVStore) Name() string {
+	return filepath.Base(s.path)
 }
 
 func (s *FileKVStore) Get(key string) ([]byte, bool, error) {

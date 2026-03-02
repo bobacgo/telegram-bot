@@ -13,7 +13,7 @@ import (
 
 var customerConfig CustomerConfig
 
-const userTopicKeyPrefix = "user_topic"
+const userTopicKey = "user_topic"
 
 func SetCustomerConfig(cfg CustomerConfig) {
 	customerConfig = cfg
@@ -116,20 +116,23 @@ func (b *Bot) getOrCreateUserTopic(userID int64, username string, groupID int64)
 }
 
 func (b *Bot) userTopicStoreKey(userID int64) string {
-	return fmt.Sprintf("%s:%d:%d", userTopicKeyPrefix, b.BotId, userID)
+	return fmt.Sprintf("%d:%d", b.BotId, userID)
 }
 
 func parseUserTopicStoreKey(key string) (botID int64, userID int64, ok bool) {
 	parts := strings.Split(key, ":")
-	if len(parts) != 3 || parts[0] != userTopicKeyPrefix {
+	if len(parts) != 2 {
+		return 0, 0, false
+	}
+	if parts[0] == "" || parts[1] == "" {
 		return 0, 0, false
 	}
 
-	bid, err := strconv.ParseInt(parts[1], 10, 64)
+	bid, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		return 0, 0, false
 	}
-	uid, err := strconv.ParseInt(parts[2], 10, 64)
+	uid, err := strconv.ParseInt(parts[1], 10, 64)
 	if err != nil {
 		return 0, 0, false
 	}
@@ -137,27 +140,20 @@ func parseUserTopicStoreKey(key string) (botID int64, userID int64, ok bool) {
 }
 
 func (b *Bot) saveUserTopic(topic *UserTopicInfo) {
-	if b.store == nil || topic == nil {
-		return
-	}
-
 	raw, err := json.Marshal(topic)
 	if err != nil {
 		slog.Error("failed to marshal topic", "user_id", topic.UserID, "err", err)
 		return
 	}
 
-	if err := b.store.Set(b.userTopicStoreKey(topic.UserID), raw); err != nil {
+	if err := b.DB[userTopicKey].Set(b.userTopicStoreKey(topic.UserID), raw); err != nil {
 		slog.Error("failed to persist topic", "user_id", topic.UserID, "err", err)
 	}
 }
 
+// restoreUserTopics 从存储中恢复用户topic信息
 func (b *Bot) restoreUserTopics() {
-	if b.store == nil {
-		return
-	}
-
-	if err := b.store.ForEach(func(key string, value []byte) error {
+	if err := b.DB[userTopicKey].ForEach(func(key string, value []byte) error {
 		botID, userID, ok := parseUserTopicStoreKey(key)
 		if !ok || botID != b.BotId {
 			return nil

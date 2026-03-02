@@ -12,6 +12,7 @@ type Config struct {
 	Proxy    ProxyConfig    `yaml:"proxy"`
 	Bots     []BotConfig    `yaml:"bot"`
 	Customer CustomerConfig `yaml:"customer"`
+	DBs      []DBConfig     `yaml:"db"`
 }
 
 type ProxyConfig struct {
@@ -30,6 +31,15 @@ type CustomerConfig struct {
 
 type CustomerGroup struct {
 	ChatID int64 `yaml:"chat_id"`
+}
+
+type DBConfig struct {
+	Path               string `yaml:"path"`                 // 存储文件路径
+	SyncOnWrite        bool   `yaml:"sync_on_write"`        // 每次写入后立即同步到磁盘
+	SyncThreshold      int    `yaml:"sync_threshold"`       // 触发 fsync 的操作次数阈值
+	CompactDeleteCount int    `yaml:"compact_delete_count"` // 触发压缩的删除次数阈值
+	CompactCooldown    int    `yaml:"compact_cooldown"`     // 压缩冷却时间（秒）
+	SyncCooldown       int    `yaml:"sync_cooldown"`        // 同步冷却时间（秒）
 }
 
 func (c *CustomerConfig) GroupChatIDs() []int64 {
