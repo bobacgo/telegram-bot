@@ -8,6 +8,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const DomainMe = "https://t.me"
+
 type Config struct {
 	Proxy    ProxyConfig    `yaml:"proxy"`
 	Bots     []BotConfig    `yaml:"bot"`

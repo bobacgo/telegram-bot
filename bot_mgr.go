@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 	"time"
@@ -31,6 +32,11 @@ func NewBotManager(tokens []string, db DB) *BotManager {
 		mgr.activeBotTokens[token] = b.BotId
 		mgr.mu.Unlock()
 	}
+	ctx := context.Background()
+
+	go runHealthCheck(ctx, &HealthGetMe{mgr: mgr})      // bot 健康检测 - GetMe接口检测
+	go runHealthCheck(ctx, &HealthTryMessage{mgr: mgr}) // bot 健康检测 - 发送消息检测
+	go runHealthCheck(ctx, &HealthChannel{mgr: mgr})    // 频道 健康检测
 	return mgr
 }
 
@@ -56,6 +62,57 @@ func (mgr *BotManager) Bots() []*Bot {
 		return true
 	})
 	return res
+}
+
+// 获取可使用的Bot列表
+func (mgr *BotManager) UsableBots() []*Bot {
+	activeBots := make([]*Bot, 0)
+	mgr.bots.Range(func(k, v any) bool {
+		bot := v.(*Bot)
+		if bot.IsHealthy() {
+			activeBots = append(activeBots, bot)
+		}
+		return true
+	})
+
+	return activeBots
+}
+
+// 获取可使用的 bot 和 网络异常的 bot 列表
+func (mgr *BotManager) ReadyBotIds() []int64 {
+	readyBots := make([]int64, 0)
+	mgr.bots.Range(func(k, v any) bool {
+		bot := v.(*Bot)
+		if bot.IsReady() {
+			readyBots = append(readyBots, bot.BotId)
+		}
+		return true
+	})
+	return readyBots
+}
+
+// 通过 bot ID 获取 Bot 实例
+func (mgr *BotManager) GetBotById(botId int64) *Bot {
+	bAny, ok := mgr.bots.Load(botId)
+	if !ok {
+		return nil
+	}
+	return bAny.(*Bot)
+}
+
+// 获取告警 Bot 实例
+func (mgr *BotManager) GetAlertBot() *Bot {
+	var alertBot *Bot
+	mgr.bots.Range(func(k, v any) bool {
+		bot := v.(*Bot)
+		if bot.BotType == BotTypeAlert {
+			alertBot = bot
+			return false // 找到后停止遍历
+		}
+		return true
+	})
+
+	return alertBot
 }
 
 func (mgr *BotManager) AddBot(botId int64, bot *Bot) {
