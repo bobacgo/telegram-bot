@@ -1,9 +1,15 @@
+## 访问 telegram api 代理
 proxy: # http proxy settings
   enabled: true
   url: "socks5://127.0.0.1:7890" 
-bot: # 机器人设置
+
+# 非业务 bot 配置（监控、告警）
+admin_bot: # 机器人设置
+
   - token: 8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA # lancewei_bot
   - token: 7984808294:AAGoRl6zwCpB2_bJUb7YCIKUyoWal4DoKnI # BearChatCustomerBot
+
+# 客服配置
 customer: # 客服设置
   session_limit: 5000 # 单个群最多能同时5000个会话
   groups:
@@ -18,3 +24,7 @@ db: # KV存储配置
     compact_delete_count: 1000 # 1000次删除后压缩
     compact_cooldown: 10       # 压缩冷却10秒
     sync_cooldown: 1           # 同步冷却1秒
+
+# 业务 bot 配置
+biz_bot:
+  

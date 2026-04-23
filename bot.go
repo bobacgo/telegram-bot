@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -183,15 +184,16 @@ const (
 )
 
 type SendMsgReq struct {
-	ChatId    int64     `json:"chat_id"`        // 目标 Chat ID (包括用户、频道、群组等)
-	MediaType MediaType `json:"media_type"`     // 消息类型：text、photo、animation、video、audio、document
-	Caption   string    `json:"caption"`        // 消息文本或媒体说明
-	Url       string    `json:"url"`            // 媒体 URL，图片/视频/文件的链接地址
-	Width     int32     `json:"width"`          // 媒体宽度（仅图片/视频有效），用于调整发送时的显示大小
-	Height    int32     `json:"height"`         // 媒体高度（仅图片/视频有效），用于调整发送时的显示大小
-	Duration  int32     `json:"duration"`       // 媒体时长（仅视频有效），单位秒，用于调整发送时的显示大小
-	Btns      []*MsgBtn `json:"btns,omitempty"` // 消息按钮列表 telebot.ModeMarkdownV2
-	ParseMode string    `json:"parse_mode"`     // 文本解析模式：MarkdownV2、HTML等，影响Caption字段的解析方式
+	BotUsername string    `json:"bot_username"`   // webappURL需要这个参数来生成链接
+	ChatId      int64     `json:"chat_id"`        // 目标 Chat ID (包括用户、频道、群组等)
+	MediaType   MediaType `json:"media_type"`     // 消息类型：text、photo、animation、video、audio、document
+	Caption     string    `json:"caption"`        // 消息文本或媒体说明
+	Url         string    `json:"url"`            // 媒体 URL，图片/视频/文件的链接地址
+	Width       int32     `json:"width"`          // 媒体宽度（仅图片/视频有效），用于调整发送时的显示大小
+	Height      int32     `json:"height"`         // 媒体高度（仅图片/视频有效），用于调整发送时的显示大小
+	Duration    int32     `json:"duration"`       // 媒体时长（仅视频有效），单位秒，用于调整发送时的显示大小
+	Btns        []*MsgBtn `json:"btns,omitempty"` // 消息按钮列表 telebot.ModeMarkdownV2
+	ParseMode   string    `json:"parse_mode"`     // 文本解析模式：MarkdownV2、HTML等，影响Caption字段的解析方式
 }
 
 // MsgBtn 定义了消息按钮的结构
@@ -255,7 +257,7 @@ func (msg *SendMsgReq) makeMsg(data *SendMsgReq) (any, *telebot.SendOptions) {
 		what = data.Caption
 	}
 
-	menu := makeBtn(data.Btns)
+	menu := makeBtn(data.BotUsername, data.Btns)
 	opts := &telebot.SendOptions{
 		ParseMode:   data.ParseMode, // 启用 HTML 解析
 		ReplyMarkup: menu,
@@ -263,14 +265,14 @@ func (msg *SendMsgReq) makeMsg(data *SendMsgReq) (any, *telebot.SendOptions) {
 	return what, opts
 }
 
-func makeBtn(btns []*MsgBtn) *telebot.ReplyMarkup {
+func makeBtn(botUsername string, btns []*MsgBtn) *telebot.ReplyMarkup {
 	menu := &telebot.ReplyMarkup{}
 
 	var rows []telebot.Row
 	for _, v := range btns {
 		var btn telebot.Btn
 		if v.IsWebapp {
-			btn = menu.WebApp(v.Text, &telebot.WebApp{URL: v.Url})
+			btn = menu.WebApp(v.Text, &telebot.WebApp{URL: genWebappURL(v.Url, botUsername)})
 		} else {
 			btn = menu.URL(v.Text, v.Url)
 		}
@@ -284,4 +286,17 @@ func makeBtn(btns []*MsgBtn) *telebot.ReplyMarkup {
 		menu.Inline(rows...) // 一次性设置所有行
 	}
 	return menu
+}
+
+// https://xxx?bot_name=lances_bot
+func genWebappURL(rawURL, botName string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		slog.Error("url parse error", "url", rawURL, "err", err)
+		return rawURL
+	}
+	params := u.Query()
+	params.Set("bot_name", botName)
+	u.RawQuery = params.Encode()
+	return u.String()
 }

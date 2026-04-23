@@ -158,7 +158,7 @@ func renderAlert(data *AlertData) string {
 	}
 	var sb strings.Builder
 	if err := templateAlert.Execute(&sb, data); err != nil {
-		slog.Error("renderAlert Execute(%+v) err:%s", data, err)
+		slog.Error("renderAlert execute failed", "data", data, "error", err)
 		return ""
 	}
 	return sb.String()
@@ -181,6 +181,6 @@ func (mgr *BotManager) sendAlert(chatId int64, alertData *AlertData) {
 		ChatId:  chatId,
 		Caption: alertMsg,
 	}); sendErr != nil {
-		slog.Error("[Alert] send warn bot alert failed: %s", sendErr.Error())
+		slog.Error("[Alert] send warn bot alert failed", "error", sendErr)
 	}
 }
