@@ -1,8 +1,6 @@
 package repo
 
-import (
-	"database/sql"
-)
+import "context"
 
 const TelegramBotTable = "telegram_bot"
 
@@ -32,10 +30,6 @@ type TelegramBot struct {
 	UpdatedAt     int64
 }
 
-func (row *TelegramBot) TableName() string {
-	return TelegramBotTable
-}
-
 func (row *TelegramBot) Mapping() []*Mapping {
 	return []*Mapping{
 		{Id, &row.Id, row.Id},
@@ -52,18 +46,20 @@ func (row *TelegramBot) Mapping() []*Mapping {
 }
 
 type BotRepo struct {
-	db *sql.DB
+	db *DB
 }
 
-func (repo *BotRepo) Insert(row *TelegramBot) error {
-	return Insert(repo.db, row)
+func (repo *BotRepo) Insert(ctx context.Context, row *TelegramBot) error {
+	_, err := repo.db.Insert(ctx, TelegramBotTable, []string{Id}, row)
+	return err
 }
 
-func (repo *BotRepo) Delete(id int) error {
-	return Delete(repo.db, TelegramBotTable, id)
+func (repo *BotRepo) Delete(ctx context.Context, id int) error {
+	_, err := repo.db.Delete(ctx, TelegramBotTable, Wheres{{Id + " = ?", id}})
+	return err
 }
 
-func (repo *BotRepo) Update(row *TelegramBot) error {
+func (repo *BotRepo) Update(ctx context.Context, row *TelegramBot) error {
 	m := map[string]any{}
 	if row.Username != "" {
 		m[Username] = row.Username
@@ -84,7 +80,8 @@ func (repo *BotRepo) Update(row *TelegramBot) error {
 		m[Status] = row.Status
 	}
 
-	return Update(repo.db, TelegramBotTable, row.Id, m)
+	_, err := repo.db.Update(ctx, TelegramBotTable, Wheres{{Id + " = ?", row.Id}}, m)
+	return err
 }
 
 type TelegramBotFilter struct {
@@ -93,27 +90,24 @@ type TelegramBotFilter struct {
 	Status int
 }
 
-func (repo *BotRepo) List(filter *TelegramBotFilter) ([]*TelegramBot, error) {
-	where, args := "", []any{}
-
+func (repo *BotRepo) List(ctx context.Context, filter *TelegramBotFilter) ([]*TelegramBot, error) {
+	where := make(Wheres, 0)
 	if filter.Owner != "" {
-		where += " AND " + Owner + " = ?"
-		args = append(args, filter.Owner)
+		where.And(Owner, filter.Owner)
 	}
 	if filter.Type != 0 {
-		where += " AND " + Type + " = ?"
-		args = append(args, filter.Type)
+		where.And(Type, filter.Type)
 	}
 	if filter.Status != 0 {
-		where += " AND " + Status + " = ?"
-		args = append(args, filter.Status)
+		where.And(Status, filter.Status)
 	}
 
-	if where != "" {
-		where = "1=1" + where
+	query := Query[*TelegramBot]{
+		NewRow:  func() *TelegramBot { return &TelegramBot{} },
+		Where:   where,
+		OrderBy: CreatedAt + " DESC",
 	}
 
-	return List(repo.db, where, args, func() *TelegramBot {
-		return &TelegramBot{}
-	})
+	rows, err := Find(ctx, repo.db, TelegramBotTable, query)
+	return rows, err
 }

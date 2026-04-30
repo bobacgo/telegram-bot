@@ -12,9 +12,10 @@ const DomainMe = "https://t.me"
 
 type Config struct {
 	Proxy    ProxyConfig    `yaml:"proxy"`
-	Bots     []BotConfig    `yaml:"bot"`
+	AdminBot AdminBotConfig `yaml:"admin_bot"`
 	Customer CustomerConfig `yaml:"customer"`
 	DBs      []DBConfig     `yaml:"db"`
+	BizBots  []BizBot       `yaml:"biz_bots"` // 这个以后从其他地方拿
 }
 
 type ProxyConfig struct {
@@ -22,7 +23,11 @@ type ProxyConfig struct {
 	URL     string `yaml:"url"`
 }
 
-type BotConfig struct {
+type AdminBotConfig struct {
+	AdminBot []*AdminBot `yaml:"bot"` // 管理员机器人
+}
+
+type AdminBot struct {
 	Token string `yaml:"token"`
 }
 
@@ -42,6 +47,20 @@ type DBConfig struct {
 	CompactDeleteCount int    `yaml:"compact_delete_count"` // 触发压缩的删除次数阈值
 	CompactCooldown    int    `yaml:"compact_cooldown"`     // 压缩冷却时间（秒）
 	SyncCooldown       int    `yaml:"sync_cooldown"`        // 同步冷却时间（秒）
+}
+
+type BotKind int
+
+const (
+	BotKindDefault  BotKind = 1 // 默认
+	BotKindCustomer BotKind = 2 // 客服 bot
+)
+
+type BizBot struct {
+	Kind          BotKind `yaml:"kind"`           // 机器人用途
+	Token         string  `yaml:"token"`          // 机器人 token
+	WebhookSecret string  `yaml:"webhook_secret"` // Webhook 验证密钥
+	Status        int     `yaml:"status"`         // 机器人状态，1=正常，2=关闭
 }
 
 func (c *CustomerConfig) GroupChatIDs() []int64 {
@@ -72,8 +91,8 @@ func (c *Config) BotTokens() []string {
 	if c == nil {
 		return nil
 	}
-	res := make([]string, 0, len(c.Bots))
-	for _, b := range c.Bots {
+	res := make([]string, 0, len(c.BizBots))
+	for _, b := range c.BizBots {
 		if b.Token != "" && !slices.Contains(res, b.Token) {
 			res = append(res, b.Token)
 		}
