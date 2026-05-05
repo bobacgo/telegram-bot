@@ -1,8 +1,8 @@
-package repo
+package app
 
 import "context"
 
-const TelegramBotTable = "telegram_bot"
+const TelegramBotTable = "bot"
 
 const (
 	Id            string = "id"
@@ -25,7 +25,7 @@ type TelegramBot struct {
 	WebhookSecret string // telegram 通过 webhook 接口请求认证的密钥 header X-Telegram-Bot-Api-Secret-Token
 	Owner         string // bot owner tg username
 	Type          int    // 类型
-	Status        int    // 状态
+	Status        int    // 状态 1.启用 2.禁用 3.封禁
 	CreatedAt     int64
 	UpdatedAt     int64
 }
@@ -59,7 +59,17 @@ func (repo *BotRepo) Delete(ctx context.Context, id int) error {
 	return err
 }
 
-func (repo *BotRepo) Update(ctx context.Context, row *TelegramBot) error {
+type BotUpdateReq struct {
+	Id            int     `json:"id"`
+	Username      string  `json:"username"`
+	Token         string  `json:"token"`
+	WebhookSecret *string `json:"webhook_secret"`
+	Owner         string  `json:"owner"`
+	Type          int     `json:"type"`
+	Status        int     `json:"status"`
+}
+
+func (repo *BotRepo) Update(ctx context.Context, row *BotUpdateReq) error {
 	m := map[string]any{}
 	if row.Username != "" {
 		m[Username] = row.Username
@@ -67,8 +77,8 @@ func (repo *BotRepo) Update(ctx context.Context, row *TelegramBot) error {
 	if row.Token != "" {
 		m[Token] = row.Token
 	}
-	if row.WebhookSecret != "" {
-		m[WebhookSecret] = row.WebhookSecret
+	if row.WebhookSecret != nil {
+		m[WebhookSecret] = *row.WebhookSecret
 	}
 	if row.Owner != "" {
 		m[Owner] = row.Owner
@@ -84,13 +94,13 @@ func (repo *BotRepo) Update(ctx context.Context, row *TelegramBot) error {
 	return err
 }
 
-type TelegramBotFilter struct {
+type TelegramBotQuery struct {
 	Owner  string
 	Type   int
 	Status int
 }
 
-func (repo *BotRepo) List(ctx context.Context, filter *TelegramBotFilter) ([]*TelegramBot, error) {
+func (repo *BotRepo) List(ctx context.Context, filter *TelegramBotQuery) ([]*TelegramBot, error) {
 	where := make(Wheres, 0)
 	if filter.Owner != "" {
 		where.And(Owner, filter.Owner)

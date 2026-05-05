@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot/pkg"
 	"fmt"
 	"os"
 	"slices"
@@ -11,16 +12,11 @@ import (
 const DomainMe = "https://t.me"
 
 type Config struct {
-	Proxy    ProxyConfig    `yaml:"proxy"`
-	AdminBot AdminBotConfig `yaml:"admin_bot"`
-	Customer CustomerConfig `yaml:"customer"`
-	DBs      []DBConfig     `yaml:"db"`
-	BizBots  []BizBot       `yaml:"biz_bots"` // 这个以后从其他地方拿
-}
-
-type ProxyConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	URL     string `yaml:"url"`
+	Proxy    pkg.ProxyConfig `yaml:"proxy"`
+	AdminBot AdminBotConfig  `yaml:"admin_bot"`
+	Customer CustomerConfig  `yaml:"customer"`
+	DBs      []DBConfig      `yaml:"db"`
+	BizBots  []BizBot        `yaml:"biz_bots"` // 这个以后从其他地方拿
 }
 
 type AdminBotConfig struct {

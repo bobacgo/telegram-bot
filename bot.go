@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot/pkg"
 	"context"
 	"fmt"
 	"log"
@@ -61,7 +62,7 @@ func NewBot(token string, db DB) *Bot {
 		OnError: func(err error, c telebot.Context) {
 			slog.Error("telegram bot error", "err", err, "bot", c.Bot())
 		},
-		Client: HttpClient(),
+		Client: pkg.HttpClient(),
 	}
 
 	bot, err := telebot.NewBot(pref)

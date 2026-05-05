@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bot/pkg"
 	"fmt"
 	"log"
 	"log/slog"
@@ -23,7 +24,7 @@ func main() {
 		log.Fatal("no bot tokens found in config")
 	}
 
-	SetProxyConfig(cfg.Proxy)
+	pkg.SetProxyConfig(cfg.Proxy)
 	SetCustomerConfig(cfg.Customer)
 
 	// load storage

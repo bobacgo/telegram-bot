@@ -1,4 +1,4 @@
-package main
+package pkg
 
 import (
 	"log/slog"
@@ -6,6 +6,11 @@ import (
 	"net/url"
 	"time"
 )
+
+type ProxyConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"`
+}
 
 var proxyConfig ProxyConfig
 
@@ -34,5 +39,23 @@ func HttpClient() *http.Client {
 		Proxy: http.ProxyURL(proxyURL),
 	}
 	slog.Info("using proxy", "url", proxyConfig.URL)
+	return clt
+}
+
+func HttpClt(proxyUrl string) *http.Client {
+	clt := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	if proxyUrl != "" {
+		proxyURL, err := url.Parse(proxyUrl)
+		if err != nil {
+			slog.Warn("invalid proxy url, using direct connection", "url", proxyUrl, "err", err)
+			return clt
+		}
+		clt.Transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		}
+		slog.Info("using proxy", "url", proxyUrl)
+	}
 	return clt
 }
