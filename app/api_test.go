@@ -27,8 +27,8 @@ func assertResponse(t *testing.T, w *httptest.ResponseRecorder) {
 }
 
 func TestMain(m *testing.M) {
-	if err := InitDB(Config{
-		DSN:     "root:@tcp(127.0.0.1:3306)/telegram_bot?charset=utf8mb4&parseTime=True&loc=Local",
+	if err := InitDB(DBConfig{
+		DSN:     "root:@tcp(127.0.0.1:3306)/telegram?charset=utf8mb4&parseTime=True&loc=Local",
 		Timeout: 5 * time.Second,
 	}); err != nil {
 		panic(err)

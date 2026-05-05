@@ -14,7 +14,7 @@ import (
 
 var db *sql.DB
 
-type Config struct {
+type DBConfig struct {
 	DSN         string        `yaml:"dsn"`
 	Timeout     time.Duration `yaml:"timeout"`
 	MaxOpenConn int           `yaml:"max_open_conn"`
@@ -23,7 +23,7 @@ type Config struct {
 	MaxIdleTime time.Duration `yaml:"max_idle_time"`
 }
 
-func InitDB(conf Config) error {
+func InitDB(conf DBConfig) error {
 	if conf.Timeout <= 0 {
 		conf.Timeout = 5 * time.Second
 	}

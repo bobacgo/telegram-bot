@@ -28,3 +28,66 @@ func (req *BotCreateReq) Validate() error {
 	}
 	return nil
 }
+
+type ChannelCreateReq struct {
+	TgChannelId int64  `json:"tg_channel_id"`
+	Title       string `json:"title"`
+	Username    string `json:"username"`
+	Owner       string `json:"owner"`
+	Type        int    `json:"type"`
+	Status      int    `json:"status"`
+}
+
+func (req *ChannelCreateReq) Validate() error {
+	if req.TgChannelId == 0 {
+		return fmt.Errorf("tg_channel_id is required")
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		return fmt.Errorf("title is required")
+	}
+	if req.Status == 0 {
+		req.Status = 1
+	}
+	return nil
+}
+
+type GroupCreateReq struct {
+	TgGroupId int64  `json:"tg_group_id"`
+	Title     string `json:"title"`
+	Username  string `json:"username"`
+	Owner     string `json:"owner"`
+	Type      int    `json:"type"`
+	Status    int    `json:"status"`
+}
+
+func (req *GroupCreateReq) Validate() error {
+	if req.TgGroupId == 0 {
+		return fmt.Errorf("tg_group_id is required")
+	}
+	if strings.TrimSpace(req.Title) == "" {
+		return fmt.Errorf("title is required")
+	}
+	if req.Status == 0 {
+		req.Status = 1
+	}
+	return nil
+}
+
+type TopicCreateReq struct {
+	TgGroupId int64  `json:"tg_group_id"`
+	TopicId   int64  `json:"topic_id"`
+	Name      string `json:"name"`
+}
+
+func (req *TopicCreateReq) Validate() error {
+	if req.TgGroupId == 0 {
+		return fmt.Errorf("tg_group_id is required")
+	}
+	if req.TopicId == 0 {
+		return fmt.Errorf("topic_id is required")
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		return fmt.Errorf("name is required")
+	}
+	return nil
+}
