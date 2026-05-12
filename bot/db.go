@@ -30,7 +30,7 @@
 //	 删除到达一次量后执行, 一定时间窗不重复执行
 //
 // 5) 最小可用版本（MVP）
-package main
+package bot
 
 import (
 	"bufio"

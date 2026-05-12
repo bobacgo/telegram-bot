@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bot/app"
+	"bot/api"
 	"bot/pkg"
+	"bot/repo"
 	"fmt"
 	"os"
 	"slices"
@@ -10,24 +11,13 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const DomainMe = "https://t.me"
-
 type Config struct {
-	Proxy     pkg.ProxyConfig     `yaml:"proxy"`
-	HttpServe app.HttpServeConfig `yaml:"http_serve"`
-	Database  app.DBConfig        `yaml:"database"`
-	AdminBot  AdminBotConfig      `yaml:"admin_bot"`
-	Customer  CustomerConfig      `yaml:"customer"`
-	DBs       []DBConfig          `yaml:"db"`
-	BizBots   []BizBot            `yaml:"biz_bots"` // 这个以后从其他地方拿
-}
-
-type AdminBotConfig struct {
-	AdminBot []*AdminBot `yaml:"bot"` // 管理员机器人
-}
-
-type AdminBot struct {
-	Token string `yaml:"token"`
+	Proxy     pkg.ProxyConfig `yaml:"proxy"`
+	HttpServe api.Config      `yaml:"http_serve"`
+	Database  repo.DBConfig   `yaml:"database"`
+	Customer  CustomerConfig  `yaml:"customer"`
+	DBs       []DBConfig      `yaml:"db"`
+	BizBots   []BizBot        `yaml:"biz_bots"` // 这个以后从其他地方拿
 }
 
 type CustomerConfig struct {

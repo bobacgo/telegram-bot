@@ -1,6 +1,7 @@
-package app
+package api
 
 import (
+	"bot/repo"
 	"bytes"
 	"encoding/json"
 	"net/http"
@@ -27,15 +28,12 @@ func assertResponse(t *testing.T, w *httptest.ResponseRecorder) {
 }
 
 func TestMain(m *testing.M) {
-	if err := InitDB(DBConfig{
+	db := repo.NewRepo(&repo.DBConfig{
 		DSN:     "root:@tcp(127.0.0.1:3306)/telegram?charset=utf8mb4&parseTime=True&loc=Local",
 		Timeout: 5 * time.Second,
-	}); err != nil {
-		panic(err)
-	}
+	})
 
-	orm := NewSQL(db)
-	http.DefaultServeMux = NewAPI(orm).Router()
+	http.DefaultServeMux = NewAPI(nil, db).Router()
 
 	m.Run()
 }
@@ -53,7 +51,7 @@ func TestBotList(t *testing.T) {
 }
 
 func TestBotCreate(t *testing.T) {
-	row := &BotCreateReq{
+	row := &repo.TelegramBot{
 		Token:         "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA",
 		WebhookSecret: "", // 不指定就默认使用 token 的前半部分
 		Owner:         "test_owner",

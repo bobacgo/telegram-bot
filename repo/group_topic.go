@@ -1,4 +1,4 @@
-package app
+package repo
 
 import "context"
 
@@ -27,16 +27,22 @@ func (row *TelegramGroupTopic) Mapping() []*Mapping {
 	}
 }
 
-type TopicRepo struct {
+type GroupTopicRepo struct {
 	db *DB
 }
 
-func (repo *TopicRepo) Insert(ctx context.Context, row *TelegramGroupTopic) error {
+func NewGroupTopicRepo(db *DB) *GroupTopicRepo {
+	return &GroupTopicRepo{
+		db: db,
+	}
+}
+
+func (repo *GroupTopicRepo) Insert(ctx context.Context, row *TelegramGroupTopic) error {
 	_, err := repo.db.Insert(ctx, TelegramGroupTopicTable, nil, row)
 	return err
 }
 
-func (repo *TopicRepo) Delete(ctx context.Context, id int) error {
+func (repo *GroupTopicRepo) Delete(ctx context.Context, id int) error {
 	_, err := repo.db.Delete(ctx, TelegramGroupTopicTable, Wheres{{Id + " = ?", id}})
 	return err
 }
@@ -48,7 +54,7 @@ type TopicUpdateReq struct {
 	Name      string `json:"name"`
 }
 
-func (repo *TopicRepo) Update(ctx context.Context, row *TopicUpdateReq) error {
+func (repo *GroupTopicRepo) Update(ctx context.Context, row *TopicUpdateReq) error {
 	m := map[string]any{}
 	if row.TgGroupId != 0 {
 		m[TgGroupId] = row.TgGroupId
@@ -70,7 +76,7 @@ type TelegramGroupTopicQuery struct {
 	Name      string
 }
 
-func (repo *TopicRepo) List(ctx context.Context, filter *TelegramGroupTopicQuery) ([]*TelegramGroupTopic, error) {
+func (repo *GroupTopicRepo) List(ctx context.Context, filter *TelegramGroupTopicQuery) ([]*TelegramGroupTopic, error) {
 	where := make(Wheres, 0)
 	if filter.TgGroupId != 0 {
 		where.And(TgGroupId+" = ?", filter.TgGroupId)

@@ -1,6 +1,10 @@
-package app
+package repo
 
-import "context"
+import (
+	"context"
+	"strconv"
+	"strings"
+)
 
 const TelegramBotTable = "bot"
 
@@ -12,6 +16,7 @@ const (
 	WebhookSecret string = "webhook_secret"
 	Owner         string = "owner"
 	Type          string = "type"
+	HealthGroupId string = "health_group_id"
 	Status        string = "status"
 	CreatedAt     string = "created_at"
 	UpdatedAt     string = "updated_at"
@@ -25,6 +30,7 @@ type TelegramBot struct {
 	WebhookSecret string // telegram 通过 webhook 接口请求认证的密钥 header X-Telegram-Bot-Api-Secret-Token
 	Owner         string // bot owner tg username
 	Type          int    // 类型
+	HealthGroupId int64  // 心跳检测群 ID ｜ 一个群最多支持 20 个 BOT
 	Status        int    // 状态 1.启用 2.禁用 3.封禁
 	CreatedAt     int64
 	UpdatedAt     int64
@@ -39,6 +45,7 @@ func (row *TelegramBot) Mapping() []*Mapping {
 		{WebhookSecret, &row.WebhookSecret, row.WebhookSecret},
 		{Owner, &row.Owner, row.Owner},
 		{Type, &row.Type, row.Type},
+		{HealthGroupId, &row.HealthGroupId, row.HealthGroupId},
 		{Status, &row.Status, row.Status},
 		{CreatedAt, &row.CreatedAt, row.CreatedAt},
 		{UpdatedAt, &row.UpdatedAt, row.UpdatedAt},
@@ -47,6 +54,12 @@ func (row *TelegramBot) Mapping() []*Mapping {
 
 type BotRepo struct {
 	db *DB
+}
+
+func NewBotRepo(db *DB) *BotRepo {
+	return &BotRepo{
+		db: db,
+	}
 }
 
 func (repo *BotRepo) Insert(ctx context.Context, row *TelegramBot) error {
@@ -66,6 +79,7 @@ type BotUpdateReq struct {
 	WebhookSecret *string `json:"webhook_secret"`
 	Owner         string  `json:"owner"`
 	Type          int     `json:"type"`
+	HealthGroupId int64   `json:"health_group_id"`
 	Status        int     `json:"status"`
 }
 
@@ -89,6 +103,9 @@ func (repo *BotRepo) Update(ctx context.Context, row *BotUpdateReq) error {
 	if row.Status != 0 {
 		m[Status] = row.Status
 	}
+	if row.HealthGroupId != 0 {
+		m[HealthGroupId] = row.HealthGroupId
+	}
 
 	_, err := repo.db.Update(ctx, TelegramBotTable, Wheres{{Id + " = ?", row.Id}}, m)
 	return err
@@ -97,19 +114,23 @@ func (repo *BotRepo) Update(ctx context.Context, row *BotUpdateReq) error {
 type TelegramBotQuery struct {
 	Owner  string
 	Type   int
-	Status int
+	Status []int
 }
 
-func (repo *BotRepo) List(ctx context.Context, filter *TelegramBotQuery) ([]*TelegramBot, error) {
+func (repo *BotRepo) List(ctx context.Context, f *TelegramBotQuery) ([]*TelegramBot, error) {
 	where := make(Wheres, 0)
-	if filter.Owner != "" {
-		where.And(Owner, filter.Owner)
+	if f.Owner != "" {
+		where.And(Owner, f.Owner)
 	}
-	if filter.Type != 0 {
-		where.And(Type, filter.Type)
+	if f.Type != 0 {
+		where.And(Type, f.Type)
 	}
-	if filter.Status != 0 {
-		where.And(Status, filter.Status)
+	if len(f.Status) > 0 {
+		statusStrArr := make([]string, len(f.Status))
+		for i, s := range f.Status {
+			statusStrArr[i] = strconv.Itoa(s)
+		}
+		where.And(Status+" IN ("+strings.Join(statusStrArr, ",")+")", nil)
 	}
 
 	query := Query[*TelegramBot]{

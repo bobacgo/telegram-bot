@@ -1,9 +1,8 @@
-## 访问 telegram api 代理
-proxy: # http proxy settings
-  enabled: true
-  url: "socks5://127.0.0.1:7890" 
+app:
+  web_hook_url: "https://example.com/webhook" # webhook地址，留空表示不使用webhook
+  proxy_url: "socks5://127.0.0.1:7890"
 
-http_serve: 
+http_serve: # 管理 bot 服务
   addr: ":8080" # API 服务器监听地址
 
 database: # 数据库配置

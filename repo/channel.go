@@ -1,4 +1,4 @@
-package app
+package repo
 
 import "context"
 
@@ -37,6 +37,12 @@ func (row *TelegramChannel) Mapping() []*Mapping {
 
 type ChannelRepo struct {
 	db *DB
+}
+
+func NewChannelRepo(db *DB) *ChannelRepo {
+	return &ChannelRepo{
+		db: db,
+	}
 }
 
 func (repo *ChannelRepo) Insert(ctx context.Context, row *TelegramChannel) error {

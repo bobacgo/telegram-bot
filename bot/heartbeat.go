@@ -1,6 +1,7 @@
-package main
+package bot
 
 import (
+	"bot/pkg/timex"
 	"context"
 	"fmt"
 	"html/template"
@@ -32,7 +33,7 @@ func runHealthCheck(ctx context.Context, health Health) {
 
 	cfg := health.Cfg()
 
-	if sleep(ctx, cfg.InitialDelay) {
+	if timex.Sleep(ctx, cfg.InitialDelay) {
 		slog.InfoContext(ctx, "health check initial wait interrupted, exiting")
 		return // 初始等待被中断，直接退出
 	}
@@ -51,7 +52,7 @@ func runHealthCheck(ctx context.Context, health Health) {
 		ids := health.List()
 		if len(ids) == 0 {
 			slog.Warn("no ready bots found during health check")
-			if sleep(ctx, cfg.EmptyWait) {
+			if timex.Sleep(ctx, cfg.EmptyWait) {
 				slog.InfoContext(ctx, "health check empty wait interrupted, exiting")
 				return // 无活跃Bot时的等待被中断，直接退出
 			}
@@ -87,7 +88,7 @@ func runHealthCheck(ctx context.Context, health Health) {
 
 			// 最后一个 bot 不需要等待检测间隔
 			if i < len(ids)-1 {
-				if sleep(ctx, checkInterval) {
+				if timex.Sleep(ctx, checkInterval) {
 					slog.InfoContext(ctx, "health check interrupted during bot checks, exiting", "checked_bots", idx)
 					return // 检测间隔等待被中断，退出
 				}
@@ -98,7 +99,7 @@ func runHealthCheck(ctx context.Context, health Health) {
 		// 如果本轮检测提前完成，等待剩余时间，确保每轮间隔固定
 		if elapsed < cfg.Interval {
 			waitTime := cfg.Interval - elapsed
-			if sleep(ctx, waitTime) {
+			if timex.Sleep(ctx, waitTime) {
 				slog.InfoContext(ctx, "health check interval wait interrupted, exiting", "elapsed", elapsed, "wait_time", waitTime)
 				return // 间隔等待被中断，退出
 			}

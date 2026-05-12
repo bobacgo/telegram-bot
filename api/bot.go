@@ -1,0 +1,125 @@
+package api
+
+import (
+	"bot/dto"
+	"bot/pkg"
+	"bot/repo"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+)
+
+type BotAPI struct {
+	Bot *repo.BotRepo
+}
+
+func NewBotAPI(repo *repo.Repo) *BotAPI {
+	return &BotAPI{
+		Bot: repo.Bot,
+	}
+}
+
+func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
+	var req dto.BotCreateReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+	if err := req.Validate(); err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	proxyUrl := r.Header.Get("proxy_url")
+	me, err := pkg.BotGetMe(req.Token, proxyUrl)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, fmt.Sprintf("failed to get bot info: %v", err))
+		return
+	}
+
+	now := time.Now().Unix()
+	row := &repo.TelegramBot{
+		BotTgId:       me.ID,
+		Username:      me.Username,
+		Token:         strings.TrimSpace(req.Token),
+		WebhookSecret: strings.TrimSpace(req.WebhookSecret),
+		Owner:         strings.TrimSpace(req.Owner),
+		Type:          req.Type,
+		Status:        req.Status,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+	}
+
+	if err := api.Bot.Insert(r.Context(), row); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: row})
+}
+
+func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
+	if id <= 0 {
+		writeErr(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	if err := api.Bot.Delete(r.Context(), id); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
+
+}
+
+func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
+	var req repo.BotUpdateReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid json body")
+		return
+	}
+
+	if req.Id <= 0 {
+		writeErr(w, http.StatusBadRequest, "id is required and must be > 0")
+		return
+	}
+
+	if err := api.Bot.Update(r.Context(), &req); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"id": req.Id}})
+}
+
+func (api *BotAPI) List(w http.ResponseWriter, r *http.Request) {
+	urlValues := r.URL.Query()
+
+	filter := &repo.TelegramBotQuery{
+		Owner: urlValues.Get("owner"),
+	}
+	if v := urlValues.Get("type"); v != "" {
+		n, _ := strconv.Atoi(v)
+		filter.Type = n
+	}
+	if v := urlValues.Get("status"); v != "" {
+		stringsList := strings.Split(v, ",")
+		for _, s := range stringsList {
+			n, _ := strconv.Atoi(s)
+			filter.Status = append(filter.Status, n)
+		}
+	}
+
+	rows, err := api.Bot.List(r.Context(), filter)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: rows})
+}

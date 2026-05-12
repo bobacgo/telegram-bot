@@ -1,4 +1,4 @@
-package app
+package repo
 
 import "context"
 
@@ -34,6 +34,12 @@ func (row *TelegramGroup) Mapping() []*Mapping {
 
 type GroupRepo struct {
 	db *DB
+}
+
+func NewGroupRepo(db *DB) *GroupRepo {
+	return &GroupRepo{
+		db: db,
+	}
 }
 
 func (repo *GroupRepo) Insert(ctx context.Context, row *TelegramGroup) error {

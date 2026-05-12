@@ -1,18 +1,19 @@
-package main
+package bot
 
 import (
-	"bot/pkg"
+	"bot/repo"
 	"context"
 	"fmt"
 	"log"
 	"log/slog"
 	"net/url"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"gopkg.in/telebot.v4"
 )
+
+const DomainMe = "https://t.me"
 
 const (
 	StatusUsable  = iota // 可使用的 Bot
@@ -27,21 +28,28 @@ const (
 	BotTypeAlert          // 告警 Bot
 )
 
-type UserTopicInfo struct {
-	UserID   int64
-	Username string
-	TopicID  int
-	GroupID  int64
+type BotConfig struct {
+	BotId         int64
+	BotUsername   string
+	Token         string
+	WebHookUrl    string
+	WebHookSecret string
+	Type          int
+	HealthGroupId int64 // 心跳检测群 ID ｜ 一个群最多支持 20 个 BOT
 }
 
-type Bot struct {
-	tgBot  *telebot.Bot
-	status atomic.Int32
+// type UserTopicInfo struct {
+// 	UserID   int64
+// 	Username string
+// 	TopicID  int
+// 	GroupID  int64
+// }
 
-	BotId    int64
-	Username string
-	DB       DB
-	BotType  int
+type Bot struct {
+	tgBot      *telebot.Bot
+	status     atomic.Int32
+	webhookURL string // 仅 webhook 模式需要, 用于在 telegram 登记，对方回复数据需要调用的地址
+	botCfg     *repo.TelegramBot
 
 	// 健康检测相关
 	failCount          int // sendMessage 连续失败次数
@@ -49,35 +57,60 @@ type Bot struct {
 	lastHeartbeatMsgId int // 上一次心跳消息 ID，用于发送前删除
 
 	// 用户ID -> topic映射
-	userTopics sync.Map // map[int64]*UserTopicInfo
+	// userTopics sync.Map // map[int64]*UserTopicInfo
 }
 
-func NewBot(token string, db DB) *Bot {
-	// TODO : webhook support
-
+func NewBot(cfg *repo.TelegramBot, webhookURL string) *Bot {
 	pref := telebot.Settings{
-		Token:   token,
-		Offline: false,
-		// Verbose: true,
+		Token:   cfg.Token,
+		Offline: true, // 当网络不稳定的时候，不影响 Bot 初始化
 		OnError: func(err error, c telebot.Context) {
-			slog.Error("telegram bot error", "err", err, "bot", c.Bot())
+			var (
+				senderId    int64
+				chatId      int64
+				recipientId string
+				text        string
+			)
+			if c != nil {
+				senderId = c.Sender().ID
+				chatId = c.Chat().ID
+				text = c.Text()
+				if c.Recipient() != nil {
+					recipientId = c.Recipient().Recipient()
+				}
+			}
+
+			// 记录错误日志
+			slog.Error("telegram bot error", "botId", cfg.BotTgId, "botName", cfg.Username, "senderId", senderId, "chatId", chatId, "recipientId", recipientId, "text", text, "err", err.Error())
 		},
-		Client: pkg.HttpClient(),
+	}
+
+	if webhookURL != "" { // 启用 webhook 模式
+		if cfg.WebhookSecret == "" {
+			log.Fatalln("WebhookSecret is empty")
+		}
+		// webhook 模式
+		pref.Poller = &telebot.Webhook{
+			SecretToken: cfg.WebhookSecret,
+			Endpoint: &telebot.WebhookEndpoint{
+				PublicURL: fmt.Sprintf("%s/%s", webhookURL, cfg.Username),
+			},
+		}
+	} else { // 长轮训模式
+		pref.Poller = &telebot.LongPoller{Timeout: 10 * time.Second}
 	}
 
 	bot, err := telebot.NewBot(pref)
 	if err != nil {
-		log.Fatalf("failed to create bot, bot_id:%s err: %v", token, err)
+		log.Fatalf("failed to create bot, bot_id:%d err: %v", cfg.BotTgId, err)
 	}
 
 	b := &Bot{
-		tgBot:    bot,
-		BotId:    bot.Me.ID,
-		Username: bot.Me.Username,
-		DB:       db,
+		tgBot:  bot,
+		botCfg: cfg,
 	}
 	// 恢复用户topic信息
-	b.restoreUserTopics()
+	// b.restoreUserTopics()
 	return b
 }
 
@@ -116,7 +149,7 @@ func (b *Bot) initHandlers() {
 	// 	return c.Send("Hello! This is an automated response.")
 	// })
 
-	b.tgBot.Handle(telebot.OnText, b.OnText)
+	// b.tgBot.Handle(telebot.OnText, b.OnText)
 }
 
 func (b *Bot) GetChatById(chatId int64) (*telebot.Chat, error) {
@@ -155,7 +188,7 @@ func (tb *Bot) SendMsg(ctx context.Context, data *SendMsgReq) (*telebot.Message,
 // SendHeartbeat 发送心跳检测消息到监控群（静默模式）
 // 返回发送的消息（用于后续删除）和错误
 func (tb *Bot) SendHeartbeat(chatId int64, idx int) (*telebot.Message, error) {
-	text := fmt.Sprintf("🤖 %d [%s] 心跳检测 - %s", idx, tb.Username, time.Now().Format("2006-01-02 15:04:05"))
+	text := fmt.Sprintf("🤖 %d [%s] 心跳检测 - %s", idx, tb.botCfg.Username, time.Now().Format("2006-01-02 15:04:05"))
 	msg, err := tb.tgBot.Send(
 		&telebot.Chat{ID: chatId},
 		text,
