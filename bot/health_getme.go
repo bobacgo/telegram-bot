@@ -14,6 +14,7 @@ type HealthGetMe struct {
 
 func (h *HealthGetMe) Cfg() *HeartbeatConfig {
 	return &HeartbeatConfig{
+		HealthName:   "getMe",
 		InitialDelay: 30 * time.Second,
 		Interval:     2 * time.Minute,
 		EmptyWait:    1 * time.Minute,

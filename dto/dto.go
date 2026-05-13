@@ -10,6 +10,7 @@ type BotCreateReq struct {
 	WebhookSecret string `json:"webhook_secret"`
 	Owner         string `json:"owner"`
 	Type          int    `json:"type"`
+	HealthGroupId int64  `json:"health_group_id"`
 	Status        int    `json:"status"`
 }
 
@@ -17,10 +18,12 @@ func (req *BotCreateReq) Validate() error {
 	if strings.TrimSpace(req.Token) == "" {
 		return fmt.Errorf("token is required")
 	}
-
 	if req.WebhookSecret == "" {
 		// 如果没有提供 webhook secret，则默认使用 token 的前半部分作为 webhook secret
 		req.WebhookSecret = req.Token[:len(req.Token)/2]
+	}
+	if req.HealthGroupId == 0 {
+		return fmt.Errorf("health_group_id is required")
 	}
 
 	if req.Status == 0 {

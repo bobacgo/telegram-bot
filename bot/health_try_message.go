@@ -12,6 +12,7 @@ type HealthTryMessage struct {
 
 func (h *HealthTryMessage) Cfg() *HeartbeatConfig {
 	return &HeartbeatConfig{
+		HealthName:   "tryMessage",
 		InitialDelay: 1 * time.Minute,
 		Interval:     5 * time.Minute,
 		EmptyWait:    2 * time.Minute,
@@ -69,17 +70,14 @@ func (h *HealthTryMessage) trySendMessage(idx int, bot *Bot) error {
 	// 发送到管理员或测试群，避免对用户造成干扰
 	// 可以考虑先删除上一次的心跳消息，避免积累过多消息
 
-	// 示例：发送到管理员
-	// TODO 替换成实际的管理员 ID 或群 ID
-	adminId := int64(123456789)
-	msg, err := bot.SendHeartbeat(adminId, idx) // idx 可以根据需要传入当前检测的 bot 顺序等信息
+	msg, err := bot.SendHeartbeat(idx) // idx 可以根据需要传入当前检测的 bot 顺序等信息
 	if err != nil {
 		return err
 	}
 
 	// 删除上一次的心跳消息
 	if bot.lastHeartbeatMsgId != 0 {
-		_ = bot.DeleteMessage(adminId, int(bot.lastHeartbeatMsgId)) // 忽略删除错误
+		_ = bot.DeleteMessage(bot.cfg.HealthGroupId, bot.lastHeartbeatMsgId)
 	}
 	bot.lastHeartbeatMsgId = msg.ID // 保存当前心跳消息 ID，供下一次删除使用
 	return nil

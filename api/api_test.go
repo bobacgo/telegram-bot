@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bot/dto"
 	"bot/repo"
 	"bytes"
 	"encoding/json"
@@ -28,13 +29,12 @@ func assertResponse(t *testing.T, w *httptest.ResponseRecorder) {
 }
 
 func TestMain(m *testing.M) {
-	db := repo.NewRepo(&repo.DBConfig{
-		DSN:     "root:@tcp(127.0.0.1:3306)/telegram?charset=utf8mb4&parseTime=True&loc=Local",
+	repoAll := repo.NewRepo(&repo.DBConfig{
+		DSN:     "root:@tcp(127.0.0.1:3306)/telegram_bot?charset=utf8mb4&parseTime=True&loc=Local",
 		Timeout: 5 * time.Second,
 	})
 
-	http.DefaultServeMux = NewAPI(nil, db).Router()
-
+	http.DefaultServeMux = NewAPI(nil, repoAll).srv.Handler.(*http.ServeMux) // 设置全局路由
 	m.Run()
 }
 
@@ -45,17 +45,18 @@ func TestBotList(t *testing.T) {
 	http.DefaultServeMux.ServeHTTP(w, req)
 	// 检查响应
 	if w.Code != http.StatusOK {
-		t.Fatalf("expected status 200, got %d", w.Code)
+		t.Fatalf("expected status 200, got %v, body: %s", w.Result().Status, w.Body.String())
 	}
 	assertResponse(t, w)
 }
 
 func TestBotCreate(t *testing.T) {
-	row := &repo.TelegramBot{
-		Token:         "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA",
+	row := &dto.BotCreateReq{
+		Token:         "7984808294:AAGoRl634zwCpB2_bJUb7I34KUyoWal4DoKnI",
 		WebhookSecret: "", // 不指定就默认使用 token 的前半部分
 		Owner:         "test_owner",
 		Type:          1,
+		HealthGroupId: -1232321311,
 		Status:        1,
 	}
 	data, _ := json.Marshal(row)

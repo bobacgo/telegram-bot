@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-const configPath = "config.json"
+const configPath = "config.yaml"
 
 func main() {
 	app := NewApp(configPath)
@@ -18,6 +18,8 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	slog.Info("shutdown signal received, shutting down...")
 
 	app.Stop()
 	slog.Info("shutdown complete")

@@ -2,9 +2,12 @@ package api
 
 import (
 	"bot/repo"
+	"context"
 	"encoding/json"
 	"log"
+	"log/slog"
 	"net/http"
+	"time"
 )
 
 type Config struct {
@@ -29,7 +32,7 @@ func writeErr(w http.ResponseWriter, status int, msg string) {
 
 type API struct {
 	cfg *Config
-	mux *http.ServeMux
+	srv *http.Server
 
 	BotAPI     *BotAPI
 	ChannelAPI *ChannelAPI
@@ -45,11 +48,14 @@ func NewAPI(cfg *Config, repo *repo.Repo) *API {
 		GroupAPI:   NewGroupAPI(repo),
 		TopicAPI:   NewTopicAPI(repo),
 	}
-	a.mux = a.Router() // 注册路由
+	a.srv = &http.Server{
+		Addr:    cfg.Addr,
+		Handler: a.router(),
+	} // 注册路由
 	return a
 }
 
-func (api *API) Router() *http.ServeMux {
+func (api *API) router() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/bot/create", api.BotAPI.Create)
 	mux.HandleFunc("PUT /api/bot/update", api.BotAPI.Update)
@@ -74,11 +80,16 @@ func (api *API) Router() *http.ServeMux {
 }
 
 func (api *API) Run() {
-	if err := http.ListenAndServe(api.cfg.Addr, api.mux); err != nil {
+	if err := api.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("api listen err: %v", err)
 	}
 }
 
-func (api *API) Shutdown() error {
-	return nil
+func (api *API) Shutdown() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := api.srv.Shutdown(ctx); err != nil {
+		log.Printf("api shutdown err: %v", err)
+	}
+	slog.Info("shutting down API server...")
 }

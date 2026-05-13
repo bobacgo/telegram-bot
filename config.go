@@ -16,8 +16,8 @@ type Config struct {
 	HttpServe api.Config      `yaml:"http_serve"`
 	Database  repo.DBConfig   `yaml:"database"`
 	Customer  CustomerConfig  `yaml:"customer"`
-	DBs       []DBConfig      `yaml:"db"`
-	BizBots   []BizBot        `yaml:"biz_bots"` // 这个以后从其他地方拿
+	//DBs       []DBConfig      `yaml:"db"`
+	BizBots []BizBot `yaml:"biz_bots"` // 这个以后从其他地方拿
 }
 
 type CustomerConfig struct {

@@ -12,6 +12,7 @@ type HealthChannel struct {
 
 func (h *HealthChannel) Cfg() *HeartbeatConfig {
 	return &HeartbeatConfig{
+		HealthName:   "channel",
 		InitialDelay: 1 * time.Minute,
 		Interval:     5 * time.Minute,
 		EmptyWait:    2 * time.Minute,

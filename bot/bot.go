@@ -23,9 +23,10 @@ const (
 )
 
 const (
-	BotTypeNormal  = iota // 普通 Bot
-	BotTypeChannel        // 频道 Bot
-	BotTypeAlert          // 告警 Bot
+	BotTypeNormal   = iota // 普通 Bot
+	BotTypeAlert           // 告警 Bot
+	BotTypeChannel         // 频道 Bot
+	BotTypeCustomer        // 客户 Bot
 )
 
 type BotConfig struct {
@@ -49,7 +50,7 @@ type Bot struct {
 	tgBot      *telebot.Bot
 	status     atomic.Int32
 	webhookURL string // 仅 webhook 模式需要, 用于在 telegram 登记，对方回复数据需要调用的地址
-	botCfg     *repo.TelegramBot
+	cfg        *repo.TelegramBot
 
 	// 健康检测相关
 	failCount          int // sendMessage 连续失败次数
@@ -106,8 +107,8 @@ func NewBot(cfg *repo.TelegramBot, webhookURL string) *Bot {
 	}
 
 	b := &Bot{
-		tgBot:  bot,
-		botCfg: cfg,
+		tgBot: bot,
+		cfg:   cfg,
 	}
 	// 恢复用户topic信息
 	// b.restoreUserTopics()
@@ -187,10 +188,10 @@ func (tb *Bot) SendMsg(ctx context.Context, data *SendMsgReq) (*telebot.Message,
 
 // SendHeartbeat 发送心跳检测消息到监控群（静默模式）
 // 返回发送的消息（用于后续删除）和错误
-func (tb *Bot) SendHeartbeat(chatId int64, idx int) (*telebot.Message, error) {
-	text := fmt.Sprintf("🤖 %d [%s] 心跳检测 - %s", idx, tb.botCfg.Username, time.Now().Format("2006-01-02 15:04:05"))
+func (tb *Bot) SendHeartbeat(idx int) (*telebot.Message, error) {
+	text := fmt.Sprintf("🤖 %d [%s] 心跳检测 - %s", idx, tb.cfg.Username, time.Now().Format("2006-01-02 15:04:05"))
 	msg, err := tb.tgBot.Send(
-		&telebot.Chat{ID: chatId},
+		&telebot.Chat{ID: tb.cfg.HealthGroupId},
 		text,
 		telebot.Silent, // 静默模式，不会产生通知
 	)

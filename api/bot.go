@@ -48,6 +48,7 @@ func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 		WebhookSecret: strings.TrimSpace(req.WebhookSecret),
 		Owner:         strings.TrimSpace(req.Owner),
 		Type:          req.Type,
+		HealthGroupId: req.HealthGroupId,
 		Status:        req.Status,
 		CreatedAt:     now,
 		UpdatedAt:     now,
@@ -58,7 +59,10 @@ func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: row})
+	// 如果是开启状态，启动 bot 实例
+	// TODO 启动 bot 实例
+
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok"})
 }
 
 func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
@@ -73,8 +77,9 @@ func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
+	// TODO 停止 bot 实例
 
+	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
 }
 
 func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +98,8 @@ func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// TODO 如果更新了 token 或 webhook secret，重启 bot 实例
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"id": req.Id}})
 }

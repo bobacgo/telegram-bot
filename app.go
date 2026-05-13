@@ -5,7 +5,6 @@ import (
 	"bot/bot"
 	"bot/repo"
 	"log"
-	"log/slog"
 )
 
 type App struct {
@@ -41,10 +40,5 @@ func (app *App) Start() {
 
 func (app *App) Stop() {
 	app.bot.Stop()
-	if err := app.api.Shutdown(); err != nil {
-		slog.Error("failed to shutdown api", "err", err)
-	}
-	if err := app.repo.Close(); err != nil {
-		slog.Error("failed to close database", "err", err)
-	}
+	app.api.Shutdown()
 }

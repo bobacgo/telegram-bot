@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,35 @@ import (
 
 	"gopkg.in/telebot.v4"
 )
+
+func TestGetGroupId(t *testing.T) {
+	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA"
+	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
+	pref := telebot.Settings{
+		Token: token,
+		Client: &http.Client{
+			Timeout: 5 * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			},
+		},
+	}
+
+	bot, err := telebot.NewBot(pref)
+	if err != nil {
+		log.Fatalf("failed to create bot, bot_id:%s err: %v", token, err)
+	}
+	bot.Handle(telebot.OnText, func(ctx telebot.Context) error {
+		switch ctx.Text() {
+		case "/gid":
+			return ctx.Send(fmt.Sprintf("Group ID: %d", ctx.Chat().ID))
+		}
+		return ctx.Send("not match command")
+	})
+	bot.Start()
+
+	select {}
+}
 
 func TestGroup(t *testing.T) {
 	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA"
