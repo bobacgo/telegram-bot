@@ -46,7 +46,7 @@ func (h *HealthTryMessage) OnError(id int64, err error) {
 	switch {
 	case errors.Is(err, ErrBotBanned):
 		slog.Warn("bot is banned or token is invalid, marking as banned", "error", err)
-		bot.status.Store(StatusBan) // 更新 bot 状态
+		bot.UpdateStatus(StatusBan) // 更新 bot 状态
 		h.mgr.sendAlert(0, nil)     // TODO 发送告警群
 	case errors.Is(err, ErrNetwork):
 		bot.failCount++
@@ -56,7 +56,7 @@ func (h *HealthTryMessage) OnError(id int64, err error) {
 		}
 
 		slog.Warn("network error detected for bot, marking as network issue", "error", err)
-		bot.status.Store(StatusNetwork)
+		bot.UpdateStatus(StatusNetwork)
 		h.mgr.sendAlert(0, nil) // TODO 发送告警群
 	default:
 		slog.Error("unexpected error during health check", "error", err)

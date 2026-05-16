@@ -111,6 +111,11 @@ func (repo *BotRepo) Update(ctx context.Context, row *BotUpdateReq) error {
 	return err
 }
 
+func (repo *BotRepo) UpdateStatus(ctx context.Context, botTgId int64, status int32) error {
+	_, err := repo.db.Update(ctx, TelegramBotTable, Wheres{{BotTgId + " = ?", botTgId}}, map[string]any{Status: status})
+	return err
+}
+
 type TelegramBotQuery struct {
 	Owner  string
 	Type   int

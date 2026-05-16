@@ -48,7 +48,7 @@ func (h *HealthGetMe) OnError(id int64, err error) {
 	switch {
 	case errors.Is(err, ErrBotBanned):
 		slog.Error("bot is banned or token is invalid, marking as banned", "error", err)
-		bot.status.Store(StatusBan) // 更新 bot 状态
+		bot.UpdateStatus(StatusBan) // 更新 bot 状态
 		h.mgr.sendAlert(0, nil)     // TODO 发送告警群
 	case errors.Is(err, ErrNetwork): // 如果网络问题需要连续失败多次才标记为异常，避免偶发的网络问题导致误判
 		bot.getMeFailCount++
@@ -58,7 +58,7 @@ func (h *HealthGetMe) OnError(id int64, err error) {
 		}
 
 		slog.Warn("network error detected for bot, marking as network issue", "error", err)
-		bot.status.Store(StatusNetwork)
+		bot.UpdateStatus(StatusNetwork)
 		h.mgr.sendAlert(0, nil) // TODO 发送告警群
 	case errors.Is(err, ErrRateLimit):
 		slog.Warn("rate limit hit for bot during health check, keeping current status", "error", err)

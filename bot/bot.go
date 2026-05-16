@@ -57,11 +57,13 @@ type Bot struct {
 	getMeFailCount     int // getMe 连续失败次数
 	lastHeartbeatMsgId int // 上一次心跳消息 ID，用于发送前删除
 
+	repo *repo.Repo
+
 	// 用户ID -> topic映射
 	// userTopics sync.Map // map[int64]*UserTopicInfo
 }
 
-func NewBot(cfg *repo.TelegramBot, webhookURL string) *Bot {
+func NewBot(cfg *repo.TelegramBot, webhookURL string, repo *repo.Repo) *Bot {
 	pref := telebot.Settings{
 		Token:   cfg.Token,
 		Offline: true, // 当网络不稳定的时候，不影响 Bot 初始化
@@ -109,6 +111,7 @@ func NewBot(cfg *repo.TelegramBot, webhookURL string) *Bot {
 	b := &Bot{
 		tgBot: bot,
 		cfg:   cfg,
+		repo:  repo,
 	}
 	// 恢复用户topic信息
 	// b.restoreUserTopics()
@@ -122,6 +125,12 @@ func (b *Bot) Start() {
 
 func (b *Bot) Stop() {
 	b.tgBot.Stop()
+}
+
+// UpdateStatus 更新 Bot 状态，并持久化到数据库
+func (b *Bot) UpdateStatus(status int32) {
+	b.status.Store(status)
+	b.repo.Bot.UpdateStatus(context.Background(), b.cfg.BotTgId, status)
 }
 
 // IsHealthy 检测Bot是否可用

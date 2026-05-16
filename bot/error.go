@@ -43,6 +43,7 @@ var bannedErrorPatterns = []string{
 	"bot was blocked",
 	"bot was kicked",
 	"Forbidden",
+	"PEER_ID_INVALID", // telegram: Bad Request: PEER_ID_INVALID (400)
 }
 
 // 识别错误，转成哨兵错误

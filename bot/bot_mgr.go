@@ -30,7 +30,7 @@ func NewBotManager(repo *repo.Repo, webhookURL string) *BotManager {
 
 	cfgs := mgr.getBotCfg()
 	for _, cfg := range cfgs {
-		b := NewBot(cfg, webhookURL)
+		b := NewBot(cfg, webhookURL, repo)
 		mgr.bots.Store(b.cfg.BotTgId, b)
 		mgr.mu.Lock()
 		mgr.activeBotTokens[cfg.Token] = b.cfg.BotTgId
