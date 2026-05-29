@@ -3,6 +3,7 @@ package main
 import (
 	"bot/api"
 	"bot/bot"
+	"bot/bus"
 	"bot/repo"
 	"log"
 )
@@ -10,6 +11,7 @@ import (
 type App struct {
 	cfgPath string
 	cfg     *Config
+	bus     *bus.Bus
 	repo    *repo.Repo
 	api     *api.API
 	bot     *bot.BotManager
@@ -27,9 +29,10 @@ func (app *App) init() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+	app.bus = bus.NewBus()
 	app.repo = repo.NewRepo(&app.cfg.Database)
-	app.api = api.NewAPI(&app.cfg.HttpServe, app.repo)
-	app.bot = bot.NewBotManager(app.repo, "") // TODO: webhookURL
+	app.api = api.NewAPI(&app.cfg.HttpServe, app.bus, app.repo)
+	app.bot = bot.NewBotManager(app.repo, "", app.bus) // TODO: webhookURL
 }
 
 func (app *App) Start() {
@@ -39,6 +42,7 @@ func (app *App) Start() {
 }
 
 func (app *App) Stop() {
+	app.bus.Stop()
 	app.bot.Stop()
 	app.api.Shutdown()
 }

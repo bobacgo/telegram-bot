@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"bot/bus"
 	"bot/repo"
 	"context"
 	"log/slog"
@@ -15,6 +16,7 @@ type BotManager struct {
 	activeBotTokens map[string]int64 // token -> botID mapping for cleanup
 	// DB              DB       // map[string]kv存储实例，按业务维度区分
 	repo   *repo.Repo
+	bus    *bus.Bus
 	mu     sync.Mutex
 	cancel context.CancelFunc // 用于停止健康检查goroutines
 }
@@ -22,9 +24,10 @@ type BotManager struct {
 // NewBotManager 创建BotManager
 // tokens: Bot token列表
 // db: 数据库实例，按业务维度管理存储
-func NewBotManager(repo *repo.Repo, webhookURL string) *BotManager {
+func NewBotManager(repo *repo.Repo, webhookURL string, bus *bus.Bus) *BotManager {
 	mgr := &BotManager{
 		repo:            repo,
+		bus:             bus,
 		activeBotTokens: make(map[string]int64),
 	}
 
@@ -39,15 +42,35 @@ func NewBotManager(repo *repo.Repo, webhookURL string) *BotManager {
 	return mgr
 }
 
+func (mgr *BotManager) consumeWebhookEvents() {
+	if mgr.bus == nil {
+		return
+	}
+	for evt := range mgr.bus.OutWebhook() {
+		if evt == nil || evt.Update == nil {
+			continue
+		}
+
+		b := mgr.GetBotById(evt.BotID)
+		if b == nil {
+			slog.Warn("drop webhook update: bot not found", "bot_id", evt.BotID, "update_id", evt.Update.ID)
+			continue
+		}
+		b.tgBot.ProcessUpdate(*evt.Update)
+	}
+}
+
 func (mgr *BotManager) Start() {
 	for _, bot := range mgr.Bots() {
-		go bot.Start()
 		slog.Info("[start] bot started", "bot_id", bot.cfg.BotTgId, "bot_name", bot.cfg.Username)
+		go bot.Start()
 	}
 
 	// 创建可以被取消的context用于健康检查goroutines
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr.cancel = cancel
+
+	go mgr.consumeWebhookEvents()
 	go runHealthCheck(ctx, &HealthGetMe{mgr: mgr})      // bot 健康检测 - GetMe接口检测
 	go runHealthCheck(ctx, &HealthTryMessage{mgr: mgr}) // bot 健康检测 - 发送消息检测
 	go runHealthCheck(ctx, &HealthChannel{mgr: mgr})    // 频道 健康检测
@@ -149,6 +172,11 @@ func (mgr *BotManager) AddBot(botId int64, bot *Bot) {
 
 	time.Sleep(time.Millisecond * 100) // wait for bot to start
 	mgr.bots.Store(botId, bot)
+	mgr.mu.Lock()
+	if bot.cfg.Token != "" {
+		mgr.activeBotTokens[bot.cfg.Token] = botId
+	}
+	mgr.mu.Unlock()
 	slog.Info("[add] bot added", "bot_id", botId, "bot_name", bot.cfg.Username)
 }
 
@@ -161,6 +189,11 @@ func (mgr *BotManager) RemoveBot(botId int64) {
 	mgr.bots.Delete(botId)
 
 	b := bAny.(*Bot)
+	mgr.mu.Lock()
+	if b.cfg.Token != "" {
+		delete(mgr.activeBotTokens, b.cfg.Token)
+	}
+	mgr.mu.Unlock()
 	b.Stop()
 
 	slog.Warn("[remove] bot removed", "bot_id", botId, "bot_name", b.cfg.Username)

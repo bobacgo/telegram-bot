@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bot/bus"
 	"bot/repo"
 	"context"
 	"encoding/json"
@@ -40,10 +41,10 @@ type API struct {
 	TopicAPI   *TopicAPI
 }
 
-func NewAPI(cfg *Config, repo *repo.Repo) *API {
+func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
 	a := &API{
 		cfg:        cfg,
-		BotAPI:     NewBotAPI(repo),
+		BotAPI:     NewBotAPI(bus, repo),
 		ChannelAPI: NewChannelAPI(repo),
 		GroupAPI:   NewGroupAPI(repo),
 		TopicAPI:   NewTopicAPI(repo),
@@ -57,6 +58,12 @@ func NewAPI(cfg *Config, repo *repo.Repo) *API {
 
 func (api *API) router() *http.ServeMux {
 	mux := http.NewServeMux()
+
+	// telegram、webhook回调
+
+	mux.HandleFunc("POST /api/telegram/webhook", api.BotAPI.Webhook) // telegram、webhook回调
+
+	// TODO : 统一处理API请求，鉴权、日志, panic等
 	mux.HandleFunc("POST /api/bot/create", api.BotAPI.Create)
 	mux.HandleFunc("PUT /api/bot/update", api.BotAPI.Update)
 	mux.HandleFunc("DELETE /api/bot/delete", api.BotAPI.Delete)

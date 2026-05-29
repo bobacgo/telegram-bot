@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bot/bus"
 	"bot/dto"
 	"bot/repo"
 	"bytes"
@@ -34,7 +35,9 @@ func TestMain(m *testing.M) {
 		Timeout: 5 * time.Second,
 	})
 
-	http.DefaultServeMux = NewAPI(nil, repoAll).srv.Handler.(*http.ServeMux) // 设置全局路由
+	bus := bus.NewBus()
+
+	http.DefaultServeMux = NewAPI(nil, bus, repoAll).srv.Handler.(*http.ServeMux) // 设置全局路由
 	m.Run()
 }
 

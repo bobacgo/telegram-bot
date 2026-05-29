@@ -1,24 +1,83 @@
 package api
 
 import (
+	"bot/bus"
 	"bot/dto"
 	"bot/pkg"
 	"bot/repo"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"gopkg.in/telebot.v4"
 )
 
 type BotAPI struct {
-	Bot *repo.BotRepo
+	Bot          *repo.BotRepo
+	secretBotMap map[string]int64
+	bus          *bus.Bus
 }
 
-func NewBotAPI(repo *repo.Repo) *BotAPI {
+func NewBotAPI(bus *bus.Bus, repo *repo.Repo) *BotAPI {
+	secretBotMap, err := repo.Bot.FindSecretBotMap(context.Background())
+	if err != nil {
+		slog.Error("failed to load webhook secret map", "error", err)
+		secretBotMap = map[string]int64{}
+	}
 	return &BotAPI{
-		Bot: repo.Bot,
+		Bot:          repo.Bot,
+		secretBotMap: secretBotMap,
+		bus:          bus,
+	}
+}
+
+func (api *BotAPI) refreshSecretBotMap() {
+	secretBotMap, err := api.Bot.FindSecretBotMap(context.Background())
+	if err != nil {
+		slog.Error("failed to refresh webhook secret map", "error", err)
+		return
+	}
+	api.secretBotMap = secretBotMap
+}
+
+func (api *BotAPI) Webhook(w http.ResponseWriter, r *http.Request) {
+	secretKey := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
+	botID, ok := api.secretBotMap[secretKey]
+	if !ok {
+		writeErr(w, http.StatusForbidden, "invalid secret key")
+		return
+	}
+
+	body := http.MaxBytesReader(w, r.Body, 1<<20)
+	defer body.Close()
+
+	var upd telebot.Update
+	if err := json.NewDecoder(body).Decode(&upd); err != nil {
+		if errors.Is(err, io.EOF) {
+			writeErr(w, http.StatusBadRequest, "empty body")
+			return
+		}
+		writeErr(w, http.StatusBadRequest, "invalid update body")
+		return
+	}
+
+	if api.bus == nil {
+		writeErr(w, http.StatusServiceUnavailable, "event bus not ready")
+		return
+	}
+	evt := &bus.TgUpdateEvent{BotID: botID, Update: &upd}
+	select {
+	case api.bus.InWebhook() <- evt:
+		writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok"})
+	default:
+		writeErr(w, http.StatusServiceUnavailable, "webhook queue is full")
 	}
 }
 
@@ -58,6 +117,7 @@ func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	api.refreshSecretBotMap()
 
 	// 如果是开启状态，启动 bot 实例
 	// TODO 启动 bot 实例
@@ -76,6 +136,7 @@ func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	api.refreshSecretBotMap()
 
 	// TODO 停止 bot 实例
 
@@ -98,6 +159,7 @@ func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	api.refreshSecretBotMap()
 
 	// TODO 如果更新了 token 或 webhook secret，重启 bot 实例
 
