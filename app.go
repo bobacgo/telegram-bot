@@ -14,7 +14,7 @@ type App struct {
 	bus     *bus.Bus
 	repo    *repo.Repo
 	api     *api.API
-	bot     *bot.BotManager
+	bot     *bot.Manager
 }
 
 func NewApp(path string) *App {
@@ -29,10 +29,11 @@ func (app *App) init() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+
 	app.bus = bus.NewBus()
 	app.repo = repo.NewRepo(&app.cfg.Database)
 	app.api = api.NewAPI(&app.cfg.HttpServe, app.bus, app.repo)
-	app.bot = bot.NewBotManager(app.repo, "", app.bus) // TODO: webhookURL
+	app.bot = bot.NewManager("", app.bus, app.repo) // TODO: webhookURL
 }
 
 func (app *App) Start() {

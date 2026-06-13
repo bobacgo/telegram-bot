@@ -29,16 +29,6 @@ const (
 	BotTypeCustomer        // 客户 Bot
 )
 
-type BotConfig struct {
-	BotId         int64
-	BotUsername   string
-	Token         string
-	WebHookUrl    string
-	WebHookSecret string
-	Type          int
-	HealthGroupId int64 // 心跳检测群 ID ｜ 一个群最多支持 20 个 BOT
-}
-
 // type UserTopicInfo struct {
 // 	UserID   int64
 // 	Username string
@@ -130,7 +120,9 @@ func (b *Bot) Stop() {
 // UpdateStatus 更新 Bot 状态，并持久化到数据库
 func (b *Bot) UpdateStatus(status int32) {
 	b.status.Store(status)
-	b.repo.Bot.UpdateStatus(context.Background(), b.cfg.BotTgId, status)
+	if err := b.repo.Bot.UpdateStatus(context.Background(), b.cfg.BotTgId, status); err != nil {
+		slog.Error("failed to update bot status in db", "bot_id", b.cfg.BotTgId, "status", status, "err", err)
+	}
 }
 
 // IsHealthy 检测Bot是否可用

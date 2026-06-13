@@ -13,8 +13,7 @@ import (
 )
 
 func TestGetChatInfo(t *testing.T) {
-	//token := "8290090910:AAHlsOp1479LSxY0w3q5m1ZE8PlNXd3noJE" // 频道管理 Bot
-	token := "8436918284:AAHl5o__uhllcYI6ucit6tQCb30Xt7OY-CQ" // 群管理 Bot
+	token := "---" // 群管理 Bot
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
 		Token: token,

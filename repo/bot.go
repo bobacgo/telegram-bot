@@ -148,22 +148,24 @@ func (repo *BotRepo) List(ctx context.Context, f *TelegramBotQuery) ([]*Telegram
 	return rows, err
 }
 
-// 获取开启的 bot secret 列表，用于 telegram webhook 验证
-func (repo *BotRepo) FindSecretList(ctx context.Context) ([]string, error) {
-	sql := "SELECT " + WebhookSecret + " FROM " + TelegramBotTable + " WHERE " + Status + " = 1"
-	rows, err := repo.db.QueryContext(ctx, sql)
-	if err != nil {
-		return nil, err
+type BotFindOneReq struct {
+	Id      int
+	BotTgId int64
+}
+
+func (repo *BotRepo) FindOne(ctx context.Context, req BotFindOneReq) (*TelegramBot, error) {
+	where := make(Wheres, 0)
+	if req.Id != 0 {
+		where.And(Id, req.Id)
 	}
-	secrets := make([]string, 0)
-	for rows.Next() {
-		var secret string
-		if err := rows.Scan(&secret); err != nil {
-			return nil, err
-		}
-		secrets = append(secrets, secret)
+	if req.BotTgId != 0 {
+		where.And(BotTgId, req.BotTgId)
 	}
-	return secrets, nil
+	query := Query[*TelegramBot]{
+		NewRow: func() *TelegramBot { return &TelegramBot{} },
+		Where:  where,
+	}
+	return FindOne(ctx, repo.db, TelegramBotTable, query)
 }
 
 // 获取开启 bot 的 webhook secret -> bot_tg_id 映射
@@ -181,7 +183,7 @@ func (repo *BotRepo) FindSecretBotMap(ctx context.Context) (map[string]int64, er
 			secret string
 			botID  int64
 		)
-		if err := rows.Scan(&secret, &botID); err != nil {
+		if err = rows.Scan(&secret, &botID); err != nil {
 			return nil, err
 		}
 		res[secret] = botID

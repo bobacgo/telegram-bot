@@ -9,7 +9,7 @@ import (
 )
 
 type HealthGetMe struct {
-	mgr *BotManager
+	mgr *Manager
 }
 
 func (h *HealthGetMe) Cfg() *HeartbeatConfig {
@@ -69,7 +69,7 @@ func (h *HealthGetMe) OnError(id int64, err error) {
 	bot.getMeFailCount = 0 // 重置失败计数，等待下一次检测
 }
 
-func (mgr *BotManager) getMe(bot *telebot.Bot) error {
+func (mgr *Manager) getMe(bot *telebot.Bot) error {
 	// 使用 Raw API 调用 getMe 方法
 	// 检测 token 是否还正常，进而确认Bot是否可用
 	// Note:

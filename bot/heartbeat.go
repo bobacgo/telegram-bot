@@ -167,7 +167,7 @@ func renderAlert(data *AlertData) string {
 }
 
 // sendChannelAlert 发送频道不可用告警
-func (mgr *BotManager) sendAlert(chatId int64, alertData *AlertData) {
+func (mgr *Manager) sendAlert(chatId int64, alertData *AlertData) {
 	alertLarkMsg := renderAlert(alertData)
 
 	alertBot := mgr.GetAlertBot()

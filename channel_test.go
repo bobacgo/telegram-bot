@@ -13,7 +13,7 @@ import (
 )
 
 func TestInChannel(t *testing.T) {
-	token := "8536721566:AAHusF9lota3wrKoKz-4cWJXzH_MaR2JEfY" // 群管理 Bot
+	token := "------" // 群管理 Bot
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
 		Token: token,

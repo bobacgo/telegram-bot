@@ -35,7 +35,7 @@ func TestGetWebhook(t *testing.T) {
 }
 
 func TestDeleteWebhook(t *testing.T) {
-	token := "7984808294:AAGoRl6zwCpB2_bJUb7YCIKUyoWal4DoKnI"
+	token := "-------"
 	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/deleteWebhook?drop_pending_updates=true", token)
 
 	// ✅ 设置代理（支持 socks5 或 http）

@@ -1,7 +1,5 @@
 package bus
 
-import "gopkg.in/telebot.v4"
-
 type Bus struct {
 	cfgChan     chan any
 	webhookChan chan *TgUpdateEvent
@@ -21,25 +19,4 @@ func (b *Bus) Start() {
 func (b *Bus) Stop() {
 	close(b.cfgChan)
 	close(b.webhookChan)
-}
-
-type TgUpdateEvent struct {
-	BotID  int64
-	Update *telebot.Update
-}
-
-func (b *Bus) InWebhook() chan<- *TgUpdateEvent {
-	return b.webhookChan
-}
-
-func (b *Bus) OutWebhook() <-chan *TgUpdateEvent {
-	return b.webhookChan
-}
-
-func (b *Bus) InConfig() chan<- any {
-	return b.cfgChan
-}
-
-func (b *Bus) OutConfig() <-chan any {
-	return b.cfgChan
 }

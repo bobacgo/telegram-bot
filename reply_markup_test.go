@@ -12,7 +12,7 @@ import (
 
 func TestReplyMarKup(t *testing.T) {
 
-	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA" // 群管理 Bot
+	token := "-------" // 群管理 Bot
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := tb.Settings{
 		Token: token,

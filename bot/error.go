@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	ErrRateLimit = errors.New("Too Many Requests")
-	ErrNetwork   = errors.New("Network Error")
-	ErrBotBanned = errors.New("Bot is banned or token is invalid")
+	ErrRateLimit = errors.New("too Many Requests")
+	ErrNetwork   = errors.New("network Error")
+	ErrBotBanned = errors.New("bot is banned or token is invalid")
 )
 
 // telegram: retry after 8 (429)
@@ -53,8 +53,7 @@ func Unwrap(err error) error {
 	}
 
 	// telebot 错误类型检查
-	var teleErr *telebot.Error
-	if errors.As(err, &teleErr) {
+	if teleErr, ok := errors.AsType[*telebot.Error](err); ok {
 		switch teleErr.Code {
 		case 401: // Unauthorized - token 无效
 			return ErrBotBanned

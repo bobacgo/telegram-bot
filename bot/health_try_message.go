@@ -7,7 +7,7 @@ import (
 )
 
 type HealthTryMessage struct {
-	mgr *BotManager
+	mgr *Manager
 }
 
 func (h *HealthTryMessage) Cfg() *HeartbeatConfig {

@@ -18,7 +18,7 @@ import (
 )
 
 type BotAPI struct {
-	Bot          *repo.BotRepo
+	botRepo      *repo.BotRepo
 	secretBotMap map[string]int64
 	bus          *bus.Bus
 }
@@ -30,14 +30,15 @@ func NewBotAPI(bus *bus.Bus, repo *repo.Repo) *BotAPI {
 		secretBotMap = map[string]int64{}
 	}
 	return &BotAPI{
-		Bot:          repo.Bot,
+		botRepo:      repo.Bot,
 		secretBotMap: secretBotMap,
 		bus:          bus,
 	}
 }
 
+// 刷新 webhook secret map，适用于 bot 创建、更新、删除等操作后，确保 webhook 验证使用最新的 secret 配置
 func (api *BotAPI) refreshSecretBotMap() {
-	secretBotMap, err := api.Bot.FindSecretBotMap(context.Background())
+	secretBotMap, err := api.botRepo.FindSecretBotMap(context.Background())
 	if err != nil {
 		slog.Error("failed to refresh webhook secret map", "error", err)
 		return
@@ -45,6 +46,7 @@ func (api *BotAPI) refreshSecretBotMap() {
 	api.secretBotMap = secretBotMap
 }
 
+// Webhook 处理 Telegram 服务器发送的更新请求，验证 secret 后将更新事件发送到总线供 BotManager 消费
 func (api *BotAPI) Webhook(w http.ResponseWriter, r *http.Request) {
 	secretKey := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
 	botID, ok := api.secretBotMap[secretKey]
@@ -58,7 +60,7 @@ func (api *BotAPI) Webhook(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "invalid update body")
 		return
 	}
-	
+
 	evt := &bus.TgUpdateEvent{BotID: botID, Update: &upd}
 	select {
 	case api.bus.InWebhook() <- evt:
@@ -68,6 +70,7 @@ func (api *BotAPI) Webhook(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// 创建 bot，验证 token 获取 bot 信息，存储配置，并发送全量同步事件以启动 bot 实例
 func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.BotCreateReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -100,18 +103,22 @@ func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:     now,
 	}
 
-	if err := api.Bot.Insert(r.Context(), row); err != nil {
+	if err := api.botRepo.Insert(r.Context(), row); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	api.refreshSecretBotMap()
 
-	// 如果是开启状态，启动 bot 实例
-	// TODO 启动 bot 实例
+	api.refreshSecretBotMap()
+	api.bus.InConfig() <- &bus.ConfigEvent{
+		OpType:  bus.OpAdd,
+		CfgType: bus.CfgBot,
+		ChatId:  row.BotTgId,
+	}
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok"})
 }
 
+// 删除 bot
 func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
 	if id <= 0 {
@@ -119,17 +126,30 @@ func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := api.Bot.Delete(r.Context(), id); err != nil {
+	row, err := api.botRepo.FindOne(r.Context(), repo.BotFindOneReq{Id: id})
+	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	if err := api.botRepo.Delete(r.Context(), id); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	api.refreshSecretBotMap()
 
-	// TODO 停止 bot 实例
+	// 停止 bot 实例，发送全量同步事件以移除失效 bot
+	api.bus.InConfig() <- &bus.ConfigEvent{
+		OpType:  bus.OpDelete,
+		CfgType: bus.CfgBot,
+		ChatId:  row.BotTgId,
+	}
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
 }
 
+// 更新 bot
 func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
 	var req repo.BotUpdateReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -141,18 +161,29 @@ func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "id is required and must be > 0")
 		return
 	}
-
-	if err := api.Bot.Update(r.Context(), &req); err != nil {
+	if err := api.botRepo.Update(r.Context(), &req); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	api.refreshSecretBotMap()
 
-	// TODO 如果更新了 token 或 webhook secret，重启 bot 实例
+	row, err := api.botRepo.FindOne(r.Context(), repo.BotFindOneReq{Id: req.Id})
+	if err == nil {
+		// 发送全量同步事件，管理器会自动对比并应用配置更新或重启 bot
+		api.bus.InConfig() <- &bus.ConfigEvent{
+			OpType:  bus.OpUpdate,
+			CfgType: bus.CfgBot,
+			ChatId:  row.BotTgId,
+		}
+	} else {
+		slog.Error("[Update] failed to find bot", "id", req.Id)
+	}
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"id": req.Id}})
 }
 
+// 查询 bot 列表，支持根据 owner、type、status 等参数过滤，返回符合条件的 bot 配置列表
 func (api *BotAPI) List(w http.ResponseWriter, r *http.Request) {
 	urlValues := r.URL.Query()
 
@@ -171,7 +202,7 @@ func (api *BotAPI) List(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rows, err := api.Bot.List(r.Context(), filter)
+	rows, err := api.botRepo.List(r.Context(), filter)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return

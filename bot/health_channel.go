@@ -7,7 +7,7 @@ import (
 )
 
 type HealthChannel struct {
-	mgr *BotManager
+	mgr *Manager
 }
 
 func (h *HealthChannel) Cfg() *HeartbeatConfig {

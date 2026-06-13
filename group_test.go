@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetGroupId(t *testing.T) {
-	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA"
+	token := "-------"
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
 		Token: token,
@@ -42,7 +42,7 @@ func TestGetGroupId(t *testing.T) {
 }
 
 func TestGroup(t *testing.T) {
-	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA"
+	token := "-----"
 	var group_id int64 = -1003563520720
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
@@ -71,7 +71,7 @@ func TestGroup(t *testing.T) {
 }
 
 func TestSendToGroup(t *testing.T) {
-	token := "8441906451:AAGMpRGiyFi3HRe-06cfchlqKf8pmlS-OdA"
+	token := "------"
 	var group_id int64 = -1003563520720
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 
