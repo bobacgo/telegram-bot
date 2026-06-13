@@ -9,40 +9,37 @@ import (
 	"time"
 )
 
-// BotManager manages multiple Bot instances.
+// Manager manages multiple Bot instances.
 // 多个Bot共享同一业务的存储实例（如user_topic存储）
-type BotManager struct {
-	bots            sync.Map         // map[botid]*Bot
-	activeBotTokens map[string]int64 // token -> botID mapping for cleanup
+type Manager struct {
+	bots sync.Map // map[botid]*Bot
+
 	// DB              DB       // map[string]kv存储实例，按业务维度区分
-	repo   *repo.Repo
-	bus    *bus.Bus
-	mu     sync.Mutex
-	cancel context.CancelFunc // 用于停止健康检查goroutines
+	repo       *repo.Repo
+	bus        *bus.Bus
+	cancel     context.CancelFunc // 用于停止健康检查goroutines
+	webhookURL string
 }
 
-// NewBotManager 创建BotManager
+// NewManager 创建BotManager
 // tokens: Bot token列表
 // db: 数据库实例，按业务维度管理存储
-func NewBotManager(repo *repo.Repo, webhookURL string, bus *bus.Bus) *BotManager {
-	mgr := &BotManager{
-		repo:            repo,
-		bus:             bus,
-		activeBotTokens: make(map[string]int64),
+func NewManager(webhookURL string, bus *bus.Bus, repo *repo.Repo) *Manager {
+	mgr := &Manager{
+		webhookURL: webhookURL,
+		bus:        bus,
+		repo:       repo,
 	}
 
 	cfgs := mgr.getBotCfg()
 	for _, cfg := range cfgs {
-		b := NewBot(cfg, webhookURL, repo)
-		mgr.bots.Store(b.cfg.BotTgId, b)
-		mgr.mu.Lock()
-		mgr.activeBotTokens[cfg.Token] = b.cfg.BotTgId
-		mgr.mu.Unlock()
+		mgr.AddBot(cfg)
 	}
 	return mgr
 }
 
-func (mgr *BotManager) consumeWebhookEvents() {
+// 监听 webhook 更新事件，分发到对应的 Bot 实例处理
+func (mgr *Manager) onWebhook() {
 	for evt := range mgr.bus.OutWebhook() {
 		if evt == nil || evt.Update == nil {
 			continue
@@ -57,7 +54,7 @@ func (mgr *BotManager) consumeWebhookEvents() {
 	}
 }
 
-func (mgr *BotManager) Start() {
+func (mgr *Manager) Start() {
 	for _, bot := range mgr.Bots() {
 		slog.Info("[start] bot started", "bot_id", bot.cfg.BotTgId, "bot_name", bot.cfg.Username)
 		go bot.Start()
@@ -67,13 +64,14 @@ func (mgr *BotManager) Start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	mgr.cancel = cancel
 
-	go mgr.consumeWebhookEvents()
+	go mgr.watchConfig() // 接收配置刷新
+	go mgr.onWebhook()
 	go runHealthCheck(ctx, &HealthGetMe{mgr: mgr})      // bot 健康检测 - GetMe接口检测
 	go runHealthCheck(ctx, &HealthTryMessage{mgr: mgr}) // bot 健康检测 - 发送消息检测
 	go runHealthCheck(ctx, &HealthChannel{mgr: mgr})    // 频道 健康检测
 }
 
-func (mgr *BotManager) Stop() {
+func (mgr *Manager) Stop() {
 	slog.Info("[stop] stopping health checks...")
 	// 停止健康检查goroutines
 	if mgr.cancel != nil {
@@ -103,7 +101,7 @@ func (mgr *BotManager) Stop() {
 	}
 }
 
-func (mgr *BotManager) Bots() []*Bot {
+func (mgr *Manager) Bots() []*Bot {
 	res := make([]*Bot, 0)
 	mgr.bots.Range(func(k, v any) bool {
 		bot := v.(*Bot)
@@ -114,7 +112,7 @@ func (mgr *BotManager) Bots() []*Bot {
 }
 
 // 获取可使用的Bot列表
-func (mgr *BotManager) UsableBots() []*Bot {
+func (mgr *Manager) UsableBots() []*Bot {
 	activeBots := make([]*Bot, 0)
 	mgr.bots.Range(func(k, v any) bool {
 		bot := v.(*Bot)
@@ -128,7 +126,7 @@ func (mgr *BotManager) UsableBots() []*Bot {
 }
 
 // 获取可使用的 bot 和 网络异常的 bot 列表
-func (mgr *BotManager) ReadyBotIds() []int64 {
+func (mgr *Manager) ReadyBotIds() []int64 {
 	readyBots := make([]int64, 0)
 	mgr.bots.Range(func(k, v any) bool {
 		bot := v.(*Bot)
@@ -141,7 +139,7 @@ func (mgr *BotManager) ReadyBotIds() []int64 {
 }
 
 // 通过 bot ID 获取 Bot 实例
-func (mgr *BotManager) GetBotById(botId int64) *Bot {
+func (mgr *Manager) GetBotById(botId int64) *Bot {
 	bAny, ok := mgr.bots.Load(botId)
 	if !ok {
 		return nil
@@ -150,7 +148,7 @@ func (mgr *BotManager) GetBotById(botId int64) *Bot {
 }
 
 // 获取告警 Bot 实例
-func (mgr *BotManager) GetAlertBot() *Bot {
+func (mgr *Manager) GetAlertBot() *Bot {
 	var alertBot *Bot
 	mgr.bots.Range(func(k, v any) bool {
 		bot := v.(*Bot)
@@ -164,20 +162,36 @@ func (mgr *BotManager) GetAlertBot() *Bot {
 	return alertBot
 }
 
-func (mgr *BotManager) AddBot(botId int64, bot *Bot) {
-	go bot.Start()
+// 添加新 Bot 实例
+func (mgr *Manager) AddBot(cfg *repo.TelegramBot) {
+	b := NewBot(cfg, mgr.webhookURL, mgr.repo)
+	mgr.bots.Store(b.cfg.BotTgId, b)
 
-	time.Sleep(time.Millisecond * 100) // wait for bot to start
-	mgr.bots.Store(botId, bot)
-	mgr.mu.Lock()
-	if bot.cfg.Token != "" {
-		mgr.activeBotTokens[bot.cfg.Token] = botId
-	}
-	mgr.mu.Unlock()
-	slog.Info("[add] bot added", "bot_id", botId, "bot_name", bot.cfg.Username)
+	slog.Info("[add] bot added", "bot_id", cfg.BotTgId, "bot_name", cfg.Username)
 }
 
-func (mgr *BotManager) RemoveBot(botId int64) {
+// 添加并启动新 Bot 实例
+func (mgr *Manager) AddBotAndStart(cfg *repo.TelegramBot) {
+	mgr.AddBot(cfg)
+
+	// 启动新添加的 bot 实例
+	bAny, ok := mgr.bots.Load(cfg.BotTgId)
+	if !ok {
+		slog.Error("[add] bot not found after adding", "bot_id", cfg.BotTgId)
+		return
+	}
+	b, _ := bAny.(*Bot)
+	go b.Start()
+}
+
+// 更新 Bot 实例配置
+func (mgr *Manager) UpdateBot(cfg *repo.TelegramBot) {
+	mgr.RemoveBot(cfg.BotTgId)
+	mgr.AddBotAndStart(cfg)
+}
+
+// 删除 Bot 实例并停止运行
+func (mgr *Manager) RemoveBot(botId int64) {
 	bAny, ok := mgr.bots.Load(botId)
 	if !ok {
 		slog.Error("[remove] bot not found", "bot_id", botId)
@@ -186,22 +200,7 @@ func (mgr *BotManager) RemoveBot(botId int64) {
 	mgr.bots.Delete(botId)
 
 	b := bAny.(*Bot)
-	mgr.mu.Lock()
-	if b.cfg.Token != "" {
-		delete(mgr.activeBotTokens, b.cfg.Token)
-	}
-	mgr.mu.Unlock()
 	b.Stop()
 
 	slog.Warn("[remove] bot removed", "bot_id", botId, "bot_name", b.cfg.Username)
-}
-
-func (mgr *BotManager) getBotCfg() []*repo.TelegramBot {
-	f := &repo.TelegramBotQuery{Status: []int{StatusUsable, StatusNetwork}}
-	botCfgs, err := mgr.repo.Bot.List(context.Background(), f)
-	if err != nil {
-		slog.Error("failed to get bot configs from repo", "err", err)
-		return nil
-	}
-	return botCfgs
 }

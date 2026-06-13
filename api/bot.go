@@ -7,9 +7,7 @@ import (
 	"bot/repo"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -55,23 +53,12 @@ func (api *BotAPI) Webhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body := http.MaxBytesReader(w, r.Body, 1<<20)
-	defer body.Close()
-
 	var upd telebot.Update
-	if err := json.NewDecoder(body).Decode(&upd); err != nil {
-		if errors.Is(err, io.EOF) {
-			writeErr(w, http.StatusBadRequest, "empty body")
-			return
-		}
+	if err := json.NewDecoder(r.Body).Decode(&upd); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid update body")
 		return
 	}
-
-	if api.bus == nil {
-		writeErr(w, http.StatusServiceUnavailable, "event bus not ready")
-		return
-	}
+	
 	evt := &bus.TgUpdateEvent{BotID: botID, Update: &upd}
 	select {
 	case api.bus.InWebhook() <- evt:
