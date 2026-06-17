@@ -21,6 +21,7 @@ type BotAPI struct {
 	botRepo      *repo.BotRepo
 	secretBotMap map[string]int64
 	bus          *bus.Bus
+	operateLog   *operateLogger
 }
 
 func NewBotAPI(bus *bus.Bus, repo *repo.Repo) *BotAPI {
@@ -33,6 +34,7 @@ func NewBotAPI(bus *bus.Bus, repo *repo.Repo) *BotAPI {
 		botRepo:      repo.Bot,
 		secretBotMap: secretBotMap,
 		bus:          bus,
+		operateLog:   newOperateLogger(repo),
 	}
 }
 
@@ -103,18 +105,24 @@ func (api *BotAPI) Create(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:     now,
 	}
 
+	// 1.插入 bot 配置到数据库
 	if err := api.botRepo.Insert(r.Context(), row); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// 2.刷新 webhook secret map，确保最新的 secret 配置生效
 	api.refreshSecretBotMap()
+
+	// 3.发送事件以启动 bot 实例
 	api.bus.InConfig() <- &bus.ConfigEvent{
 		OpType:  bus.OpAdd,
 		CfgType: bus.CfgBot,
 		ChatId:  row.BotTgId,
 	}
 
+	// 4.记录操作日志
+	api.operateLog.write(r, repo.OpAdd, moduleBot, strconv.FormatInt(row.BotTgId, 10), row, "")
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok"})
 }
 
@@ -132,19 +140,23 @@ func (api *BotAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 1.删除 bot 配置从数据库
 	if err := api.botRepo.Delete(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// 2.刷新 webhook secret map，确保最新的 secret 配置生效
 	api.refreshSecretBotMap()
 
-	// 停止 bot 实例，发送全量同步事件以移除失效 bot
+	// 3.停止 bot 实例，发送全量同步事件以移除失效 bot
 	api.bus.InConfig() <- &bus.ConfigEvent{
 		OpType:  bus.OpDelete,
 		CfgType: bus.CfgBot,
 		ChatId:  row.BotTgId,
 	}
+	// 4.记录操作日志
+	api.operateLog.write(r, repo.OpDelete, moduleBot, strconv.FormatInt(row.BotTgId, 10), "", "")
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
 }
@@ -161,21 +173,25 @@ func (api *BotAPI) Update(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "id is required and must be > 0")
 		return
 	}
+	// 1.更新 bot 配置到数据库
 	if err := api.botRepo.Update(r.Context(), &req); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// 2.刷新 webhook secret map，确保最新的 secret 配置生效
 	api.refreshSecretBotMap()
 
 	row, err := api.botRepo.FindOne(r.Context(), repo.BotFindOneReq{Id: req.Id})
 	if err == nil {
-		// 发送全量同步事件，管理器会自动对比并应用配置更新或重启 bot
+		// 3.发送全量同步事件，管理器会自动对比并应用配置更新或重启 bot
 		api.bus.InConfig() <- &bus.ConfigEvent{
 			OpType:  bus.OpUpdate,
 			CfgType: bus.CfgBot,
 			ChatId:  row.BotTgId,
 		}
+		// 4.记录操作日志
+		api.operateLog.write(r, repo.OpUpdate, moduleBot, strconv.FormatInt(row.BotTgId, 10), row, "")
 	} else {
 		slog.Error("[Update] failed to find bot", "id", req.Id)
 	}

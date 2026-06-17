@@ -52,6 +52,27 @@ func (repo *GroupRepo) Delete(ctx context.Context, id int) error {
 	return err
 }
 
+type GroupFindOneReq struct {
+	Id        int
+	TgGroupId int64
+}
+
+func (repo *GroupRepo) FindOne(ctx context.Context, req GroupFindOneReq) (*TelegramGroup, error) {
+	where := make(Wheres, 0)
+	if req.Id != 0 {
+		where.And(Id+" = ?", req.Id)
+	}
+	if req.TgGroupId != 0 {
+		where.And(TgGroupId+" = ?", req.TgGroupId)
+	}
+
+	query := Query[*TelegramGroup]{
+		NewRow: func() *TelegramGroup { return &TelegramGroup{} },
+		Where:  where,
+	}
+	return FindOne(ctx, repo.db, TelegramGroupTable, query)
+}
+
 type GroupUpdateReq struct {
 	Id        int     `json:"id"`
 	TgGroupId int64   `json:"tg_group_id"`

@@ -11,15 +11,18 @@ import (
 )
 
 type GroupAPI struct {
-	Group *repo.GroupRepo
+	Group      *repo.GroupRepo
+	operateLog *operateLogger
 }
 
 func NewGroupAPI(repo *repo.Repo) *GroupAPI {
 	return &GroupAPI{
-		Group: repo.Group,
+		Group:      repo.Group,
+		operateLog: newOperateLogger(repo),
 	}
 }
 
+// 创建群组
 func (api *GroupAPI) Create(w http.ResponseWriter, r *http.Request) {
 	var req dto.GroupCreateReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -43,14 +46,18 @@ func (api *GroupAPI) Create(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: now,
 	}
 
+	// 1.插入群组配置到数据库
 	if err := api.Group.Insert(r.Context(), row); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// 2.记录操作日志
+	api.operateLog.write(r, repo.OpAdd, moduleGroup, strconv.FormatInt(row.TgGroupId, 10), row, "")
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: row})
 }
 
+// 删除群组
 func (api *GroupAPI) Delete(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.URL.Query().Get("id"))
 	if id <= 0 {
@@ -58,14 +65,24 @@ func (api *GroupAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	row, err := api.Group.FindOne(r.Context(), repo.GroupFindOneReq{Id: id})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// 1.删除群组配置从数据库
 	if err := api.Group.Delete(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// 2.记录操作日志
+	api.operateLog.write(r, repo.OpDelete, moduleGroup, strconv.FormatInt(row.TgGroupId, 10), row, "")
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
 }
 
+// 更新群组
 func (api *GroupAPI) Update(w http.ResponseWriter, r *http.Request) {
 	var req repo.GroupUpdateReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -88,14 +105,24 @@ func (api *GroupAPI) Update(w http.ResponseWriter, r *http.Request) {
 		req.Username = &username
 	}
 
+	// 1.更新群组配置到数据库
 	if err := api.Group.Update(r.Context(), &req); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	row, err := api.Group.FindOne(r.Context(), repo.GroupFindOneReq{Id: req.Id})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// 2.记录操作日志
+	api.operateLog.write(r, repo.OpUpdate, moduleGroup, strconv.FormatInt(row.TgGroupId, 10), row, "")
+
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"id": req.Id}})
 }
 
+// 查询群组列表
 func (api *GroupAPI) List(w http.ResponseWriter, r *http.Request) {
 	urlValues := r.URL.Query()
 

@@ -6,6 +6,7 @@ type Repo struct {
 	Channel    *ChannelRepo
 	Group      *GroupRepo
 	GroupTopic *GroupTopicRepo
+	OperateLog *OperateLogRepo
 }
 
 func NewRepo(cfg *DBConfig) *Repo {
@@ -17,6 +18,7 @@ func NewRepo(cfg *DBConfig) *Repo {
 		Channel:    NewChannelRepo(db),
 		Group:      NewGroupRepo(db),
 		GroupTopic: NewGroupTopicRepo(db),
+		OperateLog: NewOperateLogRepo(db),
 	}
 }
 
