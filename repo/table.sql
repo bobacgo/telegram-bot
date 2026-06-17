@@ -76,3 +76,11 @@ CREATE TABLE operate_log (
     KEY idx_module_target (module_name, target_id),
     KEY idx_operate_at (operate_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='操作日志表';
+
+CREATE TABLE auth (
+    username VARCHAR(64) NOT NULL DEFAULT '' COMMENT '用户名',
+    token VARCHAR(255) NOT NULL DEFAULT '' COMMENT '访问令牌',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1-启用，2-禁用',
+    created_at BIGINT NOT NULL DEFAULT 0 COMMENT '创建时间戳',
+    UNIQUE KEY uk_auth_username (username)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='接口鉴权表';

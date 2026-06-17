@@ -7,6 +7,7 @@ type Repo struct {
 	Group      *GroupRepo
 	GroupTopic *GroupTopicRepo
 	OperateLog *OperateLogRepo
+	Auth       *AuthRepo
 }
 
 func NewRepo(cfg *DBConfig) *Repo {
@@ -19,6 +20,7 @@ func NewRepo(cfg *DBConfig) *Repo {
 		Group:      NewGroupRepo(db),
 		GroupTopic: NewGroupTopicRepo(db),
 		OperateLog: NewOperateLogRepo(db),
+		Auth:       NewAuthRepo(db),
 	}
 }
 

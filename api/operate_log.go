@@ -81,7 +81,7 @@ func (l *operateLogger) write(r *http.Request, opType int, moduleName, targetId 
 	}
 
 	row := &repo.OperateLog{
-		Operator:   requestOperator(r),
+		Operator:   r.Header.Get("username"),
 		OperateAt:  time.Now().Unix(),
 		IpAddress:  requestIP(r),
 		OpType:     opType,
@@ -93,23 +93,6 @@ func (l *operateLogger) write(r *http.Request, opType int, moduleName, targetId 
 	if err := l.repo.Insert(context.Background(), row); err != nil {
 		slog.Error("write operate log failed", "module", moduleName, "target_id", targetId, "err", err)
 	}
-}
-
-// requestOperator 从 HTTP 请求中提取操作人信息。
-func requestOperator(r *http.Request) string {
-	if r == nil {
-		return "unknown"
-	}
-	for _, key := range []string{
-		"X-Operator",
-		"X-User",
-		"X-Username",
-	} {
-		if v := strings.TrimSpace(r.Header.Get(key)); v != "" {
-			return v
-		}
-	}
-	return "unknown"
 }
 
 // requestIP 从 HTTP 请求中提取客户端 IP 地址。

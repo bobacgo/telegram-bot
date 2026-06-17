@@ -40,12 +40,15 @@ type API struct {
 	GroupAPI      *GroupAPI
 	TopicAPI      *TopicAPI
 	OperateLogAPI *OperateLogAPI
+	AuthAPI       *AuthAPI
+	AuthCache     *authCache
 }
 
 func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
 	if cfg == nil {
 		cfg = &Config{}
 	}
+	authCache := newAuthCache(repo.Auth)
 	a := &API{
 		cfg:           cfg,
 		BotAPI:        NewBotAPI(bus, repo),
@@ -53,6 +56,8 @@ func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
 		GroupAPI:      NewGroupAPI(repo),
 		TopicAPI:      NewTopicAPI(repo),
 		OperateLogAPI: NewOperateLogAPI(repo),
+		AuthAPI:       NewAuthAPI(authCache),
+		AuthCache:     authCache,
 	}
 	a.srv = &http.Server{
 		Addr:    cfg.Addr,
@@ -69,28 +74,42 @@ func (api *API) router() *http.ServeMux {
 	mux.HandleFunc("POST /api/telegram/webhook", api.BotAPI.Webhook) // telegram、webhook回调
 
 	// TODO : 统一处理API请求，鉴权、日志, panic等
-	mux.HandleFunc("POST /api/bot/create", api.BotAPI.Create)
-	mux.HandleFunc("PUT /api/bot/update", api.BotAPI.Update)
-	mux.HandleFunc("DELETE /api/bot/delete", api.BotAPI.Delete)
-	mux.HandleFunc("GET /api/bot/list", api.BotAPI.List)
+	mux.HandleFunc("POST /api/bot/create", api.auth(api.BotAPI.Create))
+	mux.HandleFunc("PUT /api/bot/update", api.auth(api.BotAPI.Update))
+	mux.HandleFunc("DELETE /api/bot/delete", api.auth(api.BotAPI.Delete))
+	mux.HandleFunc("GET /api/bot/list", api.auth(api.BotAPI.List))
 
-	mux.HandleFunc("POST /api/channel/create", api.ChannelAPI.Create)
-	mux.HandleFunc("PUT /api/channel/update", api.ChannelAPI.Update)
-	mux.HandleFunc("DELETE /api/channel/delete", api.ChannelAPI.Delete)
-	mux.HandleFunc("GET /api/channel/list", api.ChannelAPI.List)
+	mux.HandleFunc("POST /api/channel/create", api.auth(api.ChannelAPI.Create))
+	mux.HandleFunc("PUT /api/channel/update", api.auth(api.ChannelAPI.Update))
+	mux.HandleFunc("DELETE /api/channel/delete", api.auth(api.ChannelAPI.Delete))
+	mux.HandleFunc("GET /api/channel/list", api.auth(api.ChannelAPI.List))
 
-	mux.HandleFunc("POST /api/group/create", api.GroupAPI.Create)
-	mux.HandleFunc("PUT /api/group/update", api.GroupAPI.Update)
-	mux.HandleFunc("DELETE /api/group/delete", api.GroupAPI.Delete)
-	mux.HandleFunc("GET /api/group/list", api.GroupAPI.List)
+	mux.HandleFunc("POST /api/group/create", api.auth(api.GroupAPI.Create))
+	mux.HandleFunc("PUT /api/group/update", api.auth(api.GroupAPI.Update))
+	mux.HandleFunc("DELETE /api/group/delete", api.auth(api.GroupAPI.Delete))
+	mux.HandleFunc("GET /api/group/list", api.auth(api.GroupAPI.List))
 
-	mux.HandleFunc("POST /api/topic/create", api.TopicAPI.Create)
-	mux.HandleFunc("PUT /api/topic/update", api.TopicAPI.Update)
-	mux.HandleFunc("DELETE /api/topic/delete", api.TopicAPI.Delete)
-	mux.HandleFunc("GET /api/topic/list", api.TopicAPI.List)
+	mux.HandleFunc("POST /api/topic/create", api.auth(api.TopicAPI.Create))
+	mux.HandleFunc("PUT /api/topic/update", api.auth(api.TopicAPI.Update))
+	mux.HandleFunc("DELETE /api/topic/delete", api.auth(api.TopicAPI.Delete))
+	mux.HandleFunc("GET /api/topic/list", api.auth(api.TopicAPI.List))
 
-	mux.HandleFunc("GET /api/operate_log/list", api.OperateLogAPI.List)
+	mux.HandleFunc("GET /api/operate_log/list", api.auth(api.OperateLogAPI.List))
+
+	mux.HandleFunc("POST /api/auth/create", api.admin(api.AuthAPI.Create))
+	mux.HandleFunc("PUT /api/auth/update", api.admin(api.AuthAPI.Update))
+	mux.HandleFunc("DELETE /api/auth/delete", api.admin(api.AuthAPI.Delete))
+	mux.HandleFunc("GET /api/auth/list", api.admin(api.AuthAPI.List))
 	return mux
+}
+
+// auth 是 API 的一个方法，用于包装需要认证的处理函数。它调用 requireAuth 中间件，传入 AuthRepo 和下一个处理函数。
+func (api *API) auth(next http.HandlerFunc) http.HandlerFunc {
+	return requireAuth(api.AuthCache, next)
+}
+
+func (api *API) admin(next http.HandlerFunc) http.HandlerFunc {
+	return requireAdmin(api.AuthCache, next)
 }
 
 func (api *API) Run() {
