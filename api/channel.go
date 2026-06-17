@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bot/bus"
 	"bot/dto"
 	"bot/repo"
 	"encoding/json"
@@ -12,11 +13,13 @@ import (
 
 type ChannelAPI struct {
 	Channel *repo.ChannelRepo
+	bus     *bus.Bus
 }
 
-func NewChannelAPI(repo *repo.Repo) *ChannelAPI {
+func NewChannelAPI(bus *bus.Bus, repo *repo.Repo) *ChannelAPI {
 	return &ChannelAPI{
 		Channel: repo.Channel,
+		bus:     bus,
 	}
 }
 
@@ -48,6 +51,7 @@ func (api *ChannelAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	api.notifyConfig(bus.OpAdd, row.TgChannelId)
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: row})
 }
 
@@ -58,11 +62,18 @@ func (api *ChannelAPI) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	row, err := api.Channel.FindOne(r.Context(), repo.ChannelFindOneReq{Id: id})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	if err := api.Channel.Delete(r.Context(), id); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	api.notifyConfig(bus.OpDelete, row.TgChannelId)
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"deleted": id}})
 }
 
@@ -93,6 +104,13 @@ func (api *ChannelAPI) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	row, err := api.Channel.FindOne(r.Context(), repo.ChannelFindOneReq{Id: req.Id})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	api.notifyConfig(bus.OpUpdate, row.TgChannelId)
+
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: map[string]any{"id": req.Id}})
 }
 
@@ -118,4 +136,15 @@ func (api *ChannelAPI) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, ApiResp{Code: 0, Msg: "ok", Data: rows})
+}
+
+func (api *ChannelAPI) notifyConfig(opType int, channelId int64) {
+	if api.bus == nil || channelId == 0 {
+		return
+	}
+	api.bus.InConfig() <- &bus.ConfigEvent{
+		OpType:  opType,
+		CfgType: bus.CfgChannel,
+		ChatId:  channelId,
+	}
 }

@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetChatInfo(t *testing.T) {
-	token := "---" // 群管理 Bot
+	token := "8221706130:AAH3Ya8vv-w1rZiIpU3Uo5wi1VX9Wx3-6d8" // 群管理 Bot
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
 		Token: token,
@@ -31,7 +31,9 @@ func TestGetChatInfo(t *testing.T) {
 	}
 	//chanInfo, err := bot.ChatByID(-1003803025720) // 公开频道
 	//chanInfo, err := bot.ChatByID(-1002073613488) // 私有频道
-	chanInfo, err := bot.ChatByID(-1003955399688) // 私有频道
+	//chanInfo, err := bot.ChatByID(-1003955399688) // 私有频道
+	//chanInfo, err := bot.ChatByUsername("sdjada")
+	chanInfo, err := bot.ChatByUsername("lance1015")
 	if err != nil {
 		log.Fatalf("failed to get chat id, bot_id:%s err: %v", token, err)
 	}

@@ -1,7 +1,9 @@
 package bot
 
 import (
+	"bot/repo"
 	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 )
@@ -24,11 +26,16 @@ func (h *HealthChannel) List() []int64 {
 }
 
 func (h *HealthChannel) Ping(idx int, id int64) error {
-	bot := h.mgr.GetBotById(id)
-	if bot == nil || !bot.IsReady() { // bot 可能已被处理了，忽略
-		return nil
+	bot := h.mgr.GetChannelBot()
+	if bot == nil { // bot 可能已被处理了，忽略
+		return fmt.Errorf("channel bot is nil channelId = %d", id)
 	}
-	err := h.checkChannel(bot)
+	channelCfg := h.mgr.GetChannelById(id)
+	if channelCfg == nil {
+		return fmt.Errorf("channel id %d not found", id)
+	}
+
+	err := h.checkChannel(bot, channelCfg)
 	return Unwrap(err) // 识别错误，转成哨兵错误
 }
 
@@ -45,7 +52,7 @@ func (h *HealthChannel) OnError(id int64, err error) {
 
 	switch {
 	case errors.Is(err, ErrBotBanned):
-		slog.Warn("bot is banned or token is invalid, marking as banned", "error", err)
+		slog.Warn("bot cannot access channel or token is invalid", "error", err)
 	case errors.Is(err, ErrNetwork):
 		slog.Warn("network error detected, marking bot as network error", "error", err)
 	default:
@@ -53,7 +60,11 @@ func (h *HealthChannel) OnError(id int64, err error) {
 	}
 }
 
-func (h *HealthChannel) checkChannel(bot *Bot) error {
-	// 通过频道id获取频道信息，如果失败则认为频道不可用
+func (h *HealthChannel) checkChannel(bot *Bot, channel *repo.TelegramChannel) error {
+	if _, err := bot.GetChatById(channel.TgChannelId); err != nil {
+		slog.Error("channel health check failed", "bot_id", bot.cfg.BotTgId, "channel_id", channel.TgChannelId, "title", channel.Title, "err", err)
+		return fmt.Errorf("check channel failed: bot_id=%d channel_id=%d title=%q: %w", bot.cfg.BotTgId, channel.TgChannelId, channel.Title, err)
+	}
+	slog.Debug("channel health check passed", "bot_id", bot.cfg.BotTgId, "channel_id", channel.TgChannelId, "title", channel.Title)
 	return nil
 }

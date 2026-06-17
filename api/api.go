@@ -42,10 +42,13 @@ type API struct {
 }
 
 func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
+	if cfg == nil {
+		cfg = &Config{}
+	}
 	a := &API{
 		cfg:        cfg,
 		BotAPI:     NewBotAPI(bus, repo),
-		ChannelAPI: NewChannelAPI(repo),
+		ChannelAPI: NewChannelAPI(bus, repo),
 		GroupAPI:   NewGroupAPI(repo),
 		TopicAPI:   NewTopicAPI(repo),
 	}

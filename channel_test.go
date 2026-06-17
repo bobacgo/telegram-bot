@@ -13,7 +13,7 @@ import (
 )
 
 func TestInChannel(t *testing.T) {
-	token := "------" // 群管理 Bot
+	token := "8290090910:AAHlsOp1479LSxY0w3q5m1ZE8PlNXd3noJE" // 群管理 Bot
 	proxyURL, _ := url.Parse("http://127.0.0.1:7890")
 	pref := telebot.Settings{
 		Token: token,
@@ -30,9 +30,9 @@ func TestInChannel(t *testing.T) {
 		log.Fatalf("failed to create bot, bot_id:%s err: %v", token, err)
 	}
 	//chid := -1003679108610
-	var chid int64 = -1003751347393
+	var chid int64 = -1003803025720
 
-	chanInfo, err := bot.ChatMemberOf(&telebot.Chat{ID: chid}, &telebot.User{ID: 7693303068}) // 私有频道
+	chanInfo, err := bot.ChatMemberOf(&telebot.Chat{ID: chid}, &telebot.User{ID: 8238467092}) // 私有频道
 	if err != nil {
 		log.Fatalf("failed to get chat id, bot_id:%s err: %v", token, err)
 	}

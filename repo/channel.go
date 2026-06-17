@@ -2,11 +2,16 @@ package repo
 
 import "context"
 
-const TelegramChannelTable = "channel"
+const TelegramChannelTable = "telegram_channel"
 
 const (
 	TgChannelId string = "tg_channel_id"
 	Title       string = "title"
+)
+
+const (
+	ChannelStatusUsable = 1
+	ChannelStatusClosed = 2
 )
 
 type TelegramChannel struct {
@@ -55,6 +60,27 @@ func (repo *ChannelRepo) Delete(ctx context.Context, id int) error {
 	return err
 }
 
+type ChannelFindOneReq struct {
+	Id          int
+	TgChannelId int64
+}
+
+func (repo *ChannelRepo) FindOne(ctx context.Context, req ChannelFindOneReq) (*TelegramChannel, error) {
+	where := make(Wheres, 0)
+	if req.Id != 0 {
+		where.And(Id+" = ?", req.Id)
+	}
+	if req.TgChannelId != 0 {
+		where.And(TgChannelId+" = ?", req.TgChannelId)
+	}
+
+	query := Query[*TelegramChannel]{
+		NewRow: func() *TelegramChannel { return &TelegramChannel{} },
+		Where:  where,
+	}
+	return FindOne(ctx, repo.db, TelegramChannelTable, query)
+}
+
 type ChannelUpdateReq struct {
 	Id          int     `json:"id"`
 	TgChannelId int64   `json:"tg_channel_id"`
@@ -67,9 +93,6 @@ type ChannelUpdateReq struct {
 
 func (repo *ChannelRepo) Update(ctx context.Context, row *ChannelUpdateReq) error {
 	m := map[string]any{}
-	if row.TgChannelId != 0 {
-		m[TgChannelId] = row.TgChannelId
-	}
 	if row.Title != "" {
 		m[Title] = row.Title
 	}
