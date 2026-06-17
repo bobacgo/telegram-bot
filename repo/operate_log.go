@@ -61,3 +61,29 @@ func (repo *OperateLogRepo) Insert(ctx context.Context, row *OperateLog) error {
 	_, err := repo.db.Insert(ctx, OperateLogTable, []string{Id}, row)
 	return err
 }
+
+type OperateLogQuery struct {
+	ModuleName string
+	TargetId   string
+	Limit      int
+	Offset     int
+}
+
+func (repo *OperateLogRepo) List(ctx context.Context, filter *OperateLogQuery) ([]*OperateLog, error) {
+	where := make(Wheres, 0)
+	if filter.ModuleName != "" {
+		where.And(ModuleName+" = ?", filter.ModuleName)
+	}
+	if filter.TargetId != "" {
+		where.And(TargetId+" = ?", filter.TargetId)
+	}
+
+	query := Query[*OperateLog]{
+		NewRow:  func() *OperateLog { return &OperateLog{} },
+		Where:   where,
+		OrderBy: OperateAt + " DESC",
+		Limit:   filter.Limit,
+		Offset:  filter.Offset,
+	}
+	return Find(ctx, repo.db, OperateLogTable, query)
+}

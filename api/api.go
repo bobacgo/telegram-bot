@@ -35,10 +35,11 @@ type API struct {
 	cfg *Config
 	srv *http.Server
 
-	BotAPI     *BotAPI
-	ChannelAPI *ChannelAPI
-	GroupAPI   *GroupAPI
-	TopicAPI   *TopicAPI
+	BotAPI        *BotAPI
+	ChannelAPI    *ChannelAPI
+	GroupAPI      *GroupAPI
+	TopicAPI      *TopicAPI
+	OperateLogAPI *OperateLogAPI
 }
 
 func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
@@ -46,11 +47,12 @@ func NewAPI(cfg *Config, bus *bus.Bus, repo *repo.Repo) *API {
 		cfg = &Config{}
 	}
 	a := &API{
-		cfg:        cfg,
-		BotAPI:     NewBotAPI(bus, repo),
-		ChannelAPI: NewChannelAPI(bus, repo),
-		GroupAPI:   NewGroupAPI(repo),
-		TopicAPI:   NewTopicAPI(repo),
+		cfg:           cfg,
+		BotAPI:        NewBotAPI(bus, repo),
+		ChannelAPI:    NewChannelAPI(bus, repo),
+		GroupAPI:      NewGroupAPI(repo),
+		TopicAPI:      NewTopicAPI(repo),
+		OperateLogAPI: NewOperateLogAPI(repo),
 	}
 	a.srv = &http.Server{
 		Addr:    cfg.Addr,
@@ -86,6 +88,8 @@ func (api *API) router() *http.ServeMux {
 	mux.HandleFunc("PUT /api/topic/update", api.TopicAPI.Update)
 	mux.HandleFunc("DELETE /api/topic/delete", api.TopicAPI.Delete)
 	mux.HandleFunc("GET /api/topic/list", api.TopicAPI.List)
+
+	mux.HandleFunc("GET /api/operate_log/list", api.OperateLogAPI.List)
 	return mux
 }
 
