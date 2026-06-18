@@ -6,6 +6,11 @@ const TelegramGroupTable = "telegram_group"
 
 const TgGroupId string = "tg_group_id"
 
+const (
+	GroupStatusUsable = 1
+	GroupStatusClosed = 2
+)
+
 type TelegramGroup struct {
 	Id        int
 	TgGroupId int64

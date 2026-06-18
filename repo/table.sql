@@ -84,3 +84,20 @@ CREATE TABLE auth (
     created_at BIGINT NOT NULL DEFAULT 0 COMMENT '创建时间戳',
     UNIQUE KEY uk_auth_username (username)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='接口鉴权表';
+
+CREATE TABLE customer_session (
+    id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY COMMENT '会话主键',
+    bot_tg_id BIGINT NOT NULL COMMENT '客服Bot Telegram ID',
+    user_id BIGINT NOT NULL COMMENT '用户Telegram ID',
+    username VARCHAR(255) NOT NULL DEFAULT '' COMMENT '用户Telegram用户名',
+    tg_group_id BIGINT NOT NULL COMMENT '客服群Telegram ID',
+    topic_id INT NOT NULL COMMENT '客服群话题ID',
+    status TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1-进行中，2-已关闭',
+    created_at BIGINT NOT NULL DEFAULT 0 COMMENT '创建时间戳',
+    updated_at BIGINT NOT NULL DEFAULT 0 COMMENT '更新时间戳',
+    UNIQUE KEY uk_customer_session_user (bot_tg_id, user_id),
+    UNIQUE KEY uk_customer_session_topic (tg_group_id, topic_id),
+    KEY idx_customer_session_group (tg_group_id),
+    KEY idx_customer_session_status (status),
+    KEY idx_customer_session_updated_at (updated_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='客服会话表';

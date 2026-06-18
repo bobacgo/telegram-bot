@@ -7,6 +7,7 @@ import (
 	"log"
 	"log/slog"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -29,12 +30,12 @@ const (
 	BotTypeCustomer        // 客户 Bot
 )
 
-// type UserTopicInfo struct {
-// 	UserID   int64
-// 	Username string
-// 	TopicID  int
-// 	GroupID  int64
-// }
+type UserTopicInfo struct {
+	UserID   int64
+	Username string
+	TopicID  int
+	GroupID  int64
+}
 
 type Bot struct {
 	tgBot      *telebot.Bot
@@ -50,7 +51,7 @@ type Bot struct {
 	repo *repo.Repo
 
 	// 用户ID -> topic映射
-	// userTopics sync.Map // map[int64]*UserTopicInfo
+	userTopics sync.Map // map[int64]*UserTopicInfo
 }
 
 func NewBot(cfg *repo.TelegramBot, webhookURL string, repo *repo.Repo) *Bot {
@@ -103,8 +104,7 @@ func NewBot(cfg *repo.TelegramBot, webhookURL string, repo *repo.Repo) *Bot {
 		cfg:   cfg,
 		repo:  repo,
 	}
-	// 恢复用户topic信息
-	// b.restoreUserTopics()
+	b.restoreUserTopics()
 	return b
 }
 
@@ -151,7 +151,9 @@ func (b *Bot) initHandlers() {
 	// 	return c.Send("Hello! This is an automated response.")
 	// })
 
-	// b.tgBot.Handle(telebot.OnText, b.OnText)
+	if b.cfg.Type == BotTypeCustomer {
+		b.tgBot.Handle(telebot.OnText, b.OnText)
+	}
 }
 
 func (b *Bot) GetChatById(chatId int64) (*telebot.Chat, error) {

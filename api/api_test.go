@@ -41,6 +41,18 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
+// =========================
+// auth api
+// =========================
+
+// =========================
+// operate api
+// =========================
+
+// =========================
+// bot api
+// ==========================
+
 func TestBotList(t *testing.T) {
 	// 创建 HTTP 请求
 	req := httptest.NewRequest("GET", "/api/bot/list", nil)
