@@ -1,6 +1,7 @@
 package main
 
 import (
+	botapp "bot"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -10,7 +11,7 @@ import (
 const configPath = "config.yaml"
 
 func main() {
-	app := NewApp(configPath)
+	app := botapp.NewApp(configPath)
 	app.Start()
 
 	slog.Info("app started")

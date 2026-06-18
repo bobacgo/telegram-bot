@@ -31,7 +31,7 @@ func assertResponse(t *testing.T, w *httptest.ResponseRecorder) {
 
 func TestMain(m *testing.M) {
 	repoAll := repo.NewRepo(&repo.DBConfig{
-		DSN:     "root:@tcp(127.0.0.1:3306)/telegram_bot?charset=utf8mb4&parseTime=True&loc=Local",
+		DSN:     "root:@tcp(127.0.0.1:3306)/telegram?charset=utf8mb4&parseTime=True&loc=Local",
 		Timeout: 5 * time.Second,
 	})
 

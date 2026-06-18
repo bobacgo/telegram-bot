@@ -6,7 +6,7 @@ http_serve: # 管理 bot 服务
   addr: ":8080" # API 服务器监听地址
 
 database: # 数据库配置
-  dsn: "root:@tcp(127.0.0.1:3306)/telegram_bot?charset=utf8mb4&parseTime=True&loc=Local" # 数据库连接字符串
+  dsn: "root:@tcp(127.0.0.1:3306)/telegram?charset=utf8mb4&parseTime=True&loc=Local" # 数据库连接字符串
   timeout: 5s # 数据库连接超时时间
   max_open_conn: 10 # 数据库最大打开连接数
   max_idle_conn: 5 # 数据库最大空闲连接数
