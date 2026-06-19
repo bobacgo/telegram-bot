@@ -1,7 +1,7 @@
 package bot
 
 import (
-	"bot/pkg/timex"
+	"bot/internal/pkg/timex"
 	"context"
 	"fmt"
 	"html/template"

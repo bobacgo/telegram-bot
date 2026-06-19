@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"bot/repo"
+	"bot/internal/repo"
 
 	"charm.land/bubbles/v2/table"
 	tea "charm.land/bubbletea/v2"

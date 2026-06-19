@@ -1,8 +1,8 @@
 package bot
 
 import (
-	"bot/bus"
-	"bot/repo"
+	"bot/internal/bus"
+	"bot/internal/repo"
 	"context"
 	"log/slog"
 )

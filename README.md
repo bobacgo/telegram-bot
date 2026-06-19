@@ -137,7 +137,7 @@ kvstores:
 
 ```bash
 # 构建
-go build
+go build -o telegram-bot ./cmd/server
 
 # 运行
 ./telegram-bot

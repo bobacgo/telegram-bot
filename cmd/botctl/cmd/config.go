@@ -15,8 +15,9 @@ import (
 const defaultAPIAddr = "http://127.0.0.1:8080"
 
 type fileConfig struct {
-	Addr  string `yaml:"addr"`
-	Token string `yaml:"token"`
+	Addr         string `yaml:"addr"`
+	Token        string `yaml:"token"`
+	LockPassword string `yaml:"lock_password,omitempty"`
 }
 
 func NewConfigCommand(cfg *cliConfig) *cobra.Command {

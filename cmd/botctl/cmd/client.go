@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"bot/repo"
+	"bot/internal/repo"
 )
 
 type apiClient struct {

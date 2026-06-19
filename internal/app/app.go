@@ -1,10 +1,10 @@
-package bot
+package app
 
 import (
-	"bot/api"
-	"bot/bot"
-	"bot/bus"
-	"bot/repo"
+	"bot/internal/api"
+	"bot/internal/bot"
+	"bot/internal/bus"
+	"bot/internal/repo"
 	"log"
 )
 

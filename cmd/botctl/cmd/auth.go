@@ -7,7 +7,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"bot/repo"
+	"bot/internal/repo"
 
 	"github.com/charmbracelet/huh"
 	"github.com/spf13/cobra"

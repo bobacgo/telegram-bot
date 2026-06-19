@@ -5,7 +5,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	"bot/repo"
+	"bot/internal/repo"
 
 	"github.com/spf13/cobra"
 )

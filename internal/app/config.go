@@ -1,9 +1,9 @@
-package bot
+package app
 
 import (
-	"bot/api"
-	"bot/pkg"
-	"bot/repo"
+	"bot/internal/api"
+	"bot/internal/pkg"
+	"bot/internal/repo"
 	"fmt"
 	"os"
 	"slices"

@@ -1,7 +1,7 @@
 package bot
 
 import (
-	"bot/repo"
+	"bot/internal/repo"
 	"errors"
 	"fmt"
 	"log/slog"

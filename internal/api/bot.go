@@ -1,10 +1,10 @@
 package api
 
 import (
-	"bot/bus"
-	"bot/dto"
-	"bot/pkg"
-	"bot/repo"
+	"bot/internal/bus"
+	"bot/internal/dto"
+	"bot/internal/pkg"
+	"bot/internal/repo"
 	"context"
 	"encoding/json"
 	"fmt"

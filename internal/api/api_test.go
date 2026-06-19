@@ -1,9 +1,9 @@
 package api
 
 import (
-	"bot/bus"
-	"bot/dto"
-	"bot/repo"
+	"bot/internal/bus"
+	"bot/internal/dto"
+	"bot/internal/repo"
 	"bytes"
 	"encoding/json"
 	"net/http"

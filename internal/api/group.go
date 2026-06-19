@@ -1,8 +1,8 @@
 package api
 
 import (
-	"bot/dto"
-	"bot/repo"
+	"bot/internal/dto"
+	"bot/internal/repo"
 	"encoding/json"
 	"net/http"
 	"strconv"

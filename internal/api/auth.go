@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bot/repo"
+	"bot/internal/repo"
 	"context"
 	"encoding/json"
 	"log/slog"

@@ -1,7 +1,7 @@
 package main
 
 import (
-	botapp "bot"
+	"bot/internal/app"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -11,8 +11,8 @@ import (
 const configPath = "config.yaml"
 
 func main() {
-	app := botapp.NewApp(configPath)
-	app.Start()
+	application := app.NewApp(configPath)
+	application.Start()
 
 	slog.Info("app started")
 
@@ -22,6 +22,6 @@ func main() {
 
 	slog.Info("shutdown signal received, shutting down...")
 
-	app.Stop()
+	application.Stop()
 	slog.Info("shutdown complete")
 }

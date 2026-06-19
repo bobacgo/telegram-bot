@@ -1,8 +1,8 @@
 package api
 
 import (
-	"bot/bus"
-	"bot/repo"
+	"bot/internal/bus"
+	"bot/internal/repo"
 	"context"
 	"encoding/json"
 	"log"
